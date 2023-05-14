@@ -1,1100 +1,625 @@
-title: Skincare Movie Ticketing Smart Contract on the Celo Blockchain
-description: In this tutorial, you'll learn how to create a skincare product on Celo Blockchain
+---
+title: Building a Movie Ticketing Smart Contract on the Celo Blockchain
+description: This tutorial will teach you how to create a movie ticket on celo blockchain for cinemas booking
 authors:
-  - name: Johnson Abu
+  - name: Ubah Victor
 ---
 
 ## Introduction
 
-In this tutorial, we will be explaining a Solidity smart contract called "SkincareProduct". The contract allows users to add skincare products and order them using a custom token called "cUSD". We'll go through each section of the code, explain its purpose, and provide additional information where necessary
+This tutorial guides you through the process of building a movie ticketing smart contract using Solidity on the Celo blockchain. The smart contract allows users to purchase movie tickets, manage ticket availability, and track revenue.
+
+We will also go through the concept of smart contracts and their benefits. Explain the purpose of the movie ticketing smart contract and how it leverages blockchain technology for secure and transparent ticket transactions.
+
+By following this tutorial, users will gain practical experience in developing a movie ticketing smart contract and understand the underlying concepts of blockchain-based systems.
+
 ## Prerequisites
 
-To follow along with this tutorial, you should have a basic understanding of Solidity and smart contracts.
+Before getting started, ensure you have the following:
 
-Also a basic understanding of web development, which should comprise of Javascript and React.
+- Basic understanding of Solidity and smart contracts.
 
-You should also have an environment set up to deploy and interact with:
-
-- smart contracts, such as Remix
-- Node.js and npm installed on your machine
-- A Celo wallet or Celo-compatible wallet extension installed in your browser (e.g., Celo Extension Wallet)
+- A development environment like remix
 
 ## SmartContract
 
-Let's get started writing out our smart contract in Remix IDE
+Let's begin writing our smart contract in Remix IDE
 
 This is the complete code.
 
-solidity
+```solidity
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.7.0 <0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract SkincareProduct is Ownable {
-    using SafeMath for uint256;
-
-    uint internal productsLength = 0;
-
-    address internal cUsdTokenAddress = 0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1;
-
-    struct Product {
-        address payable owner;
-        string brand;
+contract Movietickets is Ownable {
+    struct Movieticket {
+        address payable admin;
+        string name;
         string image;
-        string category;
-        string deliveredWithin;
-        uint numberOfStock;
-        uint amount;
-        uint sales;
+        string filmIndustry;
+        string genre;
+        string description;
+        uint price;
+        uint sold;
+        uint ticketsAvailable;
+        bool forSale;
     }
 
-    mapping (uint => Product) private products;
-    
-    event ProductAdded(uint productId);
-    event ProductRemoved(uint productId);
-    event ProductOrdered(address _from, uint productId);
-    event StockUpdated(uint productId, uint newStock);
+    uint internal moviesLength = 0;
+    address internal cUsdTokenAddress = 0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1;
 
-    modifier productExists(uint _index) {
-        require(_index < productsLength, "Product doesn't exist");
+    mapping (uint => Movieticket) internal movies;
+    mapping (address => mapping (uint => uint)) internal userTickets;
+    uint internal totalRevenue = 0;
+
+    event TicketPurchase(address indexed buyer, uint indexed movieIndex, uint ticketCount);
+    event TicketRefund(address indexed buyer, uint indexed movieIndex, uint ticketCount);
+
+    modifier isTicketAvailable(uint _index, uint _tickets) {
+        require(movies[_index].ticketsAvailable >= _tickets, "Tickets not sufficient");
         _;
     }
 
-    function addProduct(
-        string calldata _brand,
-        string calldata _image,
-        string calldata _category,
-        string calldata _deliveredWithin,
-        uint _numberOfStock,
-        uint _amount
+    modifier isTicketForSale(uint _index) {
+        require(movies[_index].forSale == true, "Ticket is not for sale");
+        _;
+    }
+
+    modifier isAdmin(uint _index) {
+        require(msg.sender == movies[_index].admin, "Only admin");
+        _;
+    }
+
+    function addMovie(
+        string memory _name,
+        string memory _image,
+        string memory _filmIndustry,
+        string memory _genre,
+        string memory _description,
+        uint _price,
+        uint _ticketsAvailable
     ) public onlyOwner {
-        require(bytes(_brand).length > 0, "Empty brand");
-        // similar checks for other parameters
-
-        products[productsLength] = Product(
+        uint _sold = 0;
+        movies[moviesLength] = Movieticket(
             payable(msg.sender),
-            _brand,
+            _name,
             _image,
-            _category,
-            _deliveredWithin,
-            _numberOfStock,
-            _amount,
-            0
+            _filmIndustry,
+            _genre,
+            _description,
+            _price,
+            _sold,
+            _ticketsAvailable,
+            true
         );
-        emit ProductAdded(productsLength);
-        productsLength++;
+        moviesLength++;
     }
 
-    function removeProduct(uint _index) public onlyOwner productExists(_index) {
-        delete products[_index];
-        emit ProductRemoved(_index);
-    }
-
-    function updateStock(uint _index, uint _newStock) public onlyOwner productExists(_index) {
-        products[_index].numberOfStock = _newStock;
-        emit StockUpdated(_index, _newStock);
-    }
-
-    function getProduct(uint _index) public view productExists(_index) returns (
+    function getMovieTicket(uint _index) public view returns (
         address payable,
         string memory,
         string memory,
         string memory,
         string memory,
+        string memory,
         uint,
         uint,
-        uint
+        uint,
+        bool
     ) {
-        Product storage p = products[_index];
+        Movieticket memory m = movies[_index];
         return (
-            p.owner,
-            p.brand,
-            p.image,
-            p.category,
-            p.deliveredWithin,
-            p.numberOfStock,
-            p.amount,
-            p.sales
+            m.admin,
+            m.name,
+            m.image,
+            m.filmIndustry,
+            m.genre,
+            m.description,
+            m.price,
+            m.sold,
+            m.ticketsAvailable,
+            m.forSale
         );
     }
-    function orderProduct(uint _index) public payable productExists(_index) {
-        Product storage currentProduct = products[_index];
-        require(currentProduct.numberOfStock > 0, "Not enough products in stock to fulfill this order");
-        require(currentProduct.owner != msg.sender, "You can't buy your own products");
 
-        currentProduct.numberOfStock = currentProduct.numberOfStock.sub(1);
-        currentProduct.sales = currentProduct.sales.add(1);
-
-        require(
-            IERC20(cUsdTokenAddress).transferFrom(
-                msg.sender,
-                currentProduct.owner,
-                currentProduct.amount
-            ),
-            "Transfer failed."
-        );
-        emit ProductOrdered(msg.sender, _index);
+    function addTickets(uint _index, uint _tickets) external isAdmin(_index) {
+        require(_tickets > 0, "Number of tickets must be greater than zero");
+        movies[_index].ticketsAvailable += _tickets;
     }
 
-    function getProductLength() public view returns (uint) {
-        return (productsLength);
+    function changeForSale(uint _index) external isAdmin(_index) {
+        movies[_index].forSale = !movies[_index].forSale;
     }
+
+    function removeTicket(uint _index) external isAdmin(_index) {
+        movies[_index] = movies[moviesLength - 1];
+        delete movies[moviesLength - 1];
+        moviesLength--;
+    }
+
+    function blockTickets(uint _index, uint _tickets) external isAdmin(_index) isTicketAvailable(_index, _tickets) {
+        movies[_index].ticketsAvailable -= _tickets;
+    }
+
+    function buyBulkMovieTicket(uint _index, uint _tickets
+) external payable isTicketForSale(_index) isTicketAvailable(_index, _tickets) {
+require(msg.sender != movies[_index].admin, "Admin cannot buy tickets");
+require(
+IERC20(cUsdTokenAddress).transferFrom(
+msg.sender,
+movies[_index].admin,
+movies[_index].price * _tickets
+),
+"Transfer failed."
+);    movies[_index].sold += _tickets;
+    movies[_index].ticketsAvailable -= _tickets;
+    userTickets[msg.sender][_index] += _tickets;
+
+    totalRevenue += movies[_index].price * _tickets;
+
+    emit TicketPurchase(msg.sender, _index, _tickets);
+}
+
+function buyMovieTicket(uint _index) public payable isTicketForSale(_index) isTicketAvailable(_index, 1) {
+    require(msg.sender != movies[_index].admin, "Admin cannot buy tickets");
+    require(
+        IERC20(cUsdTokenAddress).transferFrom(
+            msg.sender,
+            movies[_index].admin,
+            movies[_index].price
+        ),
+        "Transfer failed."
+    );
+
+    movies[_index].sold += 1;
+    movies[_index].ticketsAvailable -= 1;
+    userTickets[msg.sender][_index] += 1;
+
+    totalRevenue += movies[_index].price;
+
+    emit TicketPurchase(msg.sender, _index, 1);
+}
+
+function refundTickets(uint _index, uint _tickets) external {
+    require(_tickets > 0, "Number of tickets must be greater than zero");
+    require(userTickets[msg.sender][_index] >= _tickets, "Insufficient tickets for refund");
+
+    uint refundAmount = movies[_index].price * _tickets;
+
+    require(
+        IERC20(cUsdTokenAddress).transferFrom(
+            movies[_index].admin,
+            msg.sender,
+            refundAmount
+        ),
+        "Transfer failed."
+    );
+
+    movies[_index].sold -= _tickets;
+    movies[_index].ticketsAvailable += _tickets;
+    userTickets[msg.sender][_index] -= _tickets;
+
+    totalRevenue -= refundAmount;
+
+    emit TicketRefund(msg.sender, _index, _tickets);
+}
+
+function getTicketsLength() public view returns (uint) {
+    return moviesLength;
+}
+
+function getUserTickets(address _user, uint _index) public view returns (uint) {
+    return userTickets[_user][_index];
+}
+
+function getTotalRevenue() public view returns (uint) {
+    return totalRevenue;
+}
 }
  
+```
 
-
-## Smart Contract Explanation?
+## How The Contract Works
 
 Let's explain how the contract works!
 
-*SPDX License Identifier, Solidity Version and Interface Definition*
+**Contract Structure and Imports**
 
-The `SPDX-License-Identifier` is a special comment that identifies the type of license under which the smart contract is released. In this case, the contract is licensed under the MIT License.
+Let's start by importing the necessary contracts and defining the main structure of our contract.
 
-solidity
+```solidity
 // SPDX-License-Identifier: MIT
+
 pragma solidity >=0.7.0 <0.9.0;
 
-interface IERC20Token {
-    // Interface functions
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+contract Movietickets is Ownable {
+    // Contract implementation goes here
 }
 
+```
 
+In this code snippet, we import the `Ownable` contract from the OpenZeppelin library, which provides basic access control functionality. We also import the `IERC20` contract, which defines the standard interface for ERC20 tokens. The `Movietickets` contract inherits from `Ownable`, making it the contract owner.
 
-The `pragma` statement specifies the version of Solidity that the contract is compatible with. In this case, it specifies that the contract requires a version greater than or equal to 0.7.0 but less than 0.9.0.
+**Define MovieTicket Structure and Variables**
 
-The `interface` declaration defines the interface for an ERC20 token contract. It specifies the required functions and events that a compliant token contract must implement. This interface will be used later in the code.
+Next, we define the structure of a movie ticket and declare the required variables.
 
-*Contract Declaration*
-
-solidity
-contract SkincareProduct {
-    // Contract variables and mappings
-    // Functions and events
+```solidity
+struct Movieticket {
+    address payable admin;
+    string name;
+    string image;
+    string filmIndustry;
+    string genre;
+    string description;
+    uint price;
+    uint sold;
+    uint ticketsAvailable;
+    bool forSale;
 }
 
-
-
-The `contract` declaration defines the SkincareProduct contract. It encapsulates all the variables, mappings, functions, and events defined within it.
-
-
-*State Variables*
-
-solidity
-uint internal productsLength = 0;
+uint internal moviesLength = 0;
 address internal cUsdTokenAddress = 0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1;
 
+mapping (uint => Movieticket) internal movies;
+mapping (address => mapping (uint => uint)) internal userTickets;
+uint internal totalRevenue = 0;
+
+```
+
+In this code snippet, we define the `Movieticket` struct, which represents the attributes of a movie ticket. The struct contains the following fields:
+
+- `admin`: The address of the ticket administrator who manages the ticket sales.
+- `name`: The name of the movie.
+- `image`: The image or poster associated with the movie.
+- `filmIndustry`: The industry to which the movie belongs (e.g., Hollywood, Bollywood).
+- `genre`: The genre of the movie (e.g., action, comedy).
+- `description`: A brief description of the movie.
+- `price`: The price of each ticket in the specified ERC20 token.
+- `sold`: The number of tickets sold for the movie.
+- `ticketsAvailable`: The number of tickets currently available for sale.
+- `forSale`: A flag indicating whether the movie tickets are available for sale.
+
+We also declare several variables:
+
+- `moviesLength`: Stores the number of movies added to the contract.
+- `cUsdTokenAddress`: The address of the ERC20 token contract used for ticket payments.
+- `movies`: A mapping that associates each movie index with its corresponding Movieticket struct.
+- `userTickets`: A mapping that tracks the number of tickets purchased by each user for each movie.
+- `totalRevenue`: Tracks the total revenue generated from ticket sales.
 
 
-- `productsLength` is an internal unsigned integer variable that keeps track of the number of products added to the contract.
+**Define Modifiers**
 
-- `cUsdTokenAddress` is an internal address variable that stores the address of the cUSD token contract.
+We will define three modifiers to enforce access control and ensure ticket availability
 
-*Struct Definition*
-
-solidity
-struct Product {
-    address payable owner;
-    string brand;
-    string image;
-    string category;
-    string deliveredWithin;
-    uint numberOfStock;
-    uint amount;
-    uint sales;
+```solidity
+modifier isTicketAvailable(uint _index, uint _tickets) {
+    require(movies[_index].ticketsAvailable >= _tickets, "Tickets not sufficient");
+    _;
 }
 
+modifier isTicketForSale(uint _index) {
+    require(movies[_index].forSale == true, "Ticket is not for sale");
+    _;
+}
 
+modifier isAdmin(uint _index) {
+    require(msg.sender == movies[_index].admin, "Only admin");
+    _;
+}
 
-The `Product` struct defines the structure of a skincare product. It contains the following fields:
+```
 
-- `owner` - the address of the product owner (payable).
-- `brand` - a string representing the brand of the product.
-- `image` - a string representing the image of the product.
-- `category` - a string representing the category of the product.
-- `deliveredWithin` - a string representing the delivery timeline of the product.
-- `numberOfStock` - an unsigned integer representing the available stock of the product.
-- `amount` - an unsigned integer representing the price of the product.
-- `sales` - an unsigned integer representing the number of sales made for the product.
+-  `isTicketAvailable`: This modifier ensures that the requested number of tickets is available for purchase. It checks if the ticketsAvailable value for the given movie index is greater than or equal to the requested number of tickets.
 
-*Mapping*
+- `isTicketForSale`: This modifier verifies that the movie tickets are currently available for sale. It checks the forSale flag for the given movie index.
+
+- `isAdmin`: This modifier restricts certain operations to be performed only by the movie administrator. It verifies if the msg.sender (current caller) is the same as the admin address of the movie.
+
+**Add Movie**
+
+We will implement a function to add movies to the contract.
+
+```solidity
+function addMovie(
+    string memory _name,
+    string memory _image,
+    string memory _filmIndustry,
+    string memory _genre,
+    string memory _description,
+    uint _price,
+    uint _ticketsAvailable
+) public onlyOwner {
+    uint _sold = 0;
+    movies[moviesLength] = Movieticket(
+        payable(msg.sender),
+        _name,
+        _image,
+        _filmIndustry,
+        _genre,
+        _description,
+        _price,
+        _sold,
+        _ticketsAvailable,
+        true
+    );
+    moviesLength++;
+}
+
+```
+
+The `addMovie` function allows the contract owner to add a new movie. It takes the following parameters:
+
+- `_name`: The name of the movie.
+- `_image`: The image or poster associated with the movie.
+- `_filmIndustry`: The industry to which the movie belongs.
+- `_genre`: The genre of the movie.
+- `_description`: A brief description of the movie.
+- `_price`: The price of each ticket in the specified ERC20 token.
+- `_ticketsAvailable`: The initial number of tickets available for sale.
+
+The function creates a new `Movieticket` struct with the provided details and adds it to the `movies` mapping using the `moviesLength` as the index. The `moviesLength` is then incremented.
+
+**Get Movie Ticket Details**
 
 We will implement a function to retrieve the details of a movie ticket.
 
-solidity
-mapping (uint => Product) private products;
-
-
-
-The `products` mapping maps a unique identifier (uint) to a Product struct. It is used to store and retrieve products based on their identifier.
-
-*Event*
-
-solidity
-event ProductOrdered(
-    address _from,
-    uint productId
-);
-
-
-
-The `productOrdered` event is emitted when a product is ordered. It logs the address of the buyer (`_from`) and the product identifier
-
-*Adding a Product*
-
-solidity
-function addProduct(
-    string calldata _brand,
-    string calldata _image,
-    string calldata _category,
-    string calldata _deliveredWithin,
-    uint _numberOfStock,
-    uint _amount
-) public {
-    // Input validation and requirements
-    // Add the product to the products mapping
-    products[productsLength] = Product(
-        payable(msg.sender),
-        _brand,
-        _image,
-        _category,
-        _deliveredWithin,
-        _numberOfStock,
-        _amount,
-        0
-    );
-    productsLength++;
-}
-
-
-
-The `addProduct` function allows a user to add a new skincare product to the contract. It takes several input parameters that describe the product details.
-
-The function performs the following steps:
-
-- Validates the input parameters to ensure they are not empty and the values are valid.
-- Creates a new instance of the `Product` struct with the provided details.
-- Assigns the product to the `products` mapping using the `productsLength` as the identifier.
-- Increments the `productsLength` variable to maintain a unique identifier for each product.
-
-*Getting a Product*
-
-solidity
-function getProduct(uint _index) public view returns (
+```solidity
+function getMovieTicket(uint _index) public view returns (
     address payable,
     string memory,
     string memory,
     string memory,
     string memory,
+    string memory,
     uint,
     uint,
-    uint
+    uint,
+    bool
 ) {
-    // Retrieve the product from the products mapping based on the given index
-    // Return the product details
+    Movieticket memory m = movies[_index];
+    return (
+        m.admin,
+        m.name,
+        m.image,
+        m.filmIndustry,
+        m.genre,
+        m.description,
+        m.price,
+        m.sold,
+        m.ticketsAvailable,
+        m.forSale
+    );
 }
 
+```
 
+The `getMovieTicket` function takes a movie index as input and returns the details of the corresponding movie ticket. It returns a tuple containing the following information:
 
-The `getProduct` function retrieves the details of a specific product based on its index in the `products` mapping.
+- `admin`: The address of the ticket administrator.
+- `name`: The name of the movie.
+- `image`: The image or poster associated with the movie.
+- `filmIndustry`: The industry to which the movie belongs.
+- `genre`: The genre of the movie.
+- `description`: A brief description of the movie.
+- `price`: The price of each ticket in the specified ERC20 token.
+- `sold`: The number of tickets sold for the movie.
+- `ticketsAvailable`: The number of tickets currently available for sale.
+- `forSale`: A flag indicating whether the movie tickets are available for sale.
 
-The function performs the following steps:
+The function retrieves the corresponding `Movieticket` struct from the `movies` mapping using the provided index and returns the values as a tuple.
 
-- Retrieves the product from the `products` mapping using the provided `_index`.
-- Returns the product details as a tuple containing the owner's address, brand, image, category, delivery timeline, number of stock, price, and number of sales.
+**Add Tickets**
 
+We will implement a function to add more tickets to a movie.
 
-*Ordering a Product*
-
-solidity
-function orderProduct(uint _index) public payable {
-    // Retrieve the product from the products mapping based on the given index
-    // Perform validations on product availability and ownership
-    // Decrement the product stock and increment the sales count
-    // Transfer the product price in cUSD from the buyer to the product owner
-    // Emit the ProductOrdered event
+```solidity
+function addTickets(uint _index, uint _tickets) external isAdmin(_index) {
+    require(_tickets > 0, "Number of tickets must be greater than zero");
+    movies[_index].ticketsAvailable += _tickets;
 }
 
+```
 
+The `addTickets` function allows the movie administrator to add more tickets to a movie. It takes the following parameters:
 
-The `orderProduct` function allows a user to order a skincare product by providing the product index. The user needs to send the required amount of cUSD as payment for the product.
+- `_index`: The index of the movie for which tickets are to be added.
+- `_tickets`: The number of tickets to add.
 
-The function performs the following steps:
+The function verifies that the number of tickets to add is greater than zero. It then increases the `ticketsAvailable` value for the specified movie index by the provided number of tickets.
 
-- Retrieves the product from the `products` mapping using the provided `_index`.
-- Validates that the product has available stock and the buyer is not the owner.
-- Decrements the product stock and increments the sales count.
-- Transfers the product price in cUSD from the buyer to the product owner using the `transferFrom` function of the cUSD token contract.
-- Emits the `ProductOrdered` event to indicate a successful order.
+**Change Ticket Sale Status**
 
-*Getting Product Length*
+We will implement a function to change the sale status of a movie ticket.
 
-solidity
-function getProductLength() public view returns (uint) {
-    return productsLength;
+```solidity
+function changeForSale(uint _index) external isAdmin(_index) {
+    movies[_index].forSale = !movies[_index].forSale;
 }
 
+```
 
+The `changeForSale` function allows the movie administrator to toggle the sale status of a movie ticket. It takes the movie index as a parameter.
 
-The `getProductLength` function returns the total number of products that have been added to the contract.
+The function flips the value of the `forSale` flag for the specified movie index. If the ticket was previously for sale, it will be marked as not for sale, and vice versa.
 
-## Frontend
+**Remove Ticket**
 
-## App.js
+We will implement a function to remove a movie ticket from the contract.
 
-*Setting up the React App*
-
-First, let's set up our React app. Open your terminal and run the following command:
-
-solidity
-npx create-react-app skincare-product-store
-
-
-
-This command will create a new directory named `skincare-product-store` with the basic structure of a React app.
-
-Next, navigate to the app's directory:
-
-solidity
-cd skincare-product-store
-
-
-
-*Installing Dependencies*
-
-In this step, we'll install the necessary dependencies for our app. Run the following commands in your terminal:
-
-solidity
-npm install web3 @celo/contractkit bignumber.js
-
-
-
-These packages will help us interact with the Celo blockchain and handle BigNumber calculations.
-
-*Creating the Contract ABI Files*
-
-In this tutorial, we'll assume that you already have the compiled contract files (`Skincare.sol` and `IERC.sol`) and their corresponding ABIs. If you don't have the ABI files, you'll need to compile the Solidity contracts and generate the ABIs using the appropriate compiler.
-
-Place the `Skincare.abi.json` and `IERC.abi.json` files in the `src/contracts` directory of your React app.
-
-*Creating the Components*
-
-In the `src` directory, create a new directory named `components`. Inside the `components` directory, create three new files: `ProductCard.js`, `Carousel.js`, and `Form.js`.
-
-- ProductCard.js
-
-solidity
-import React from "react";
-
-const ProductCard = ({
-  id,
-  brand,
-  image,
-  category,
-  deliveredWithin,
-  numberOfStock,
-  amount,
-  orderProduct,
-}) => {
-  return (
-    <div className="product-card">
-      <img src={image} alt={brand} />
-      <h3>{brand}</h3>
-      <p>Category: {category}</p>
-      <p>Delivery: {deliveredWithin}</p>
-      <p>Stock: {numberOfStock}</p>
-      <p>Amount: {amount}</p>
-      <button onClick={() => orderProduct(id)}>Order</button>
-    </div>
-  );
-};
-
-export default ProductCard;
-
-
-
-The `ProductCard` component represents a card displaying information about a skincare product. It receives the product details as props and renders them along with an "Order" button. When the button is clicked, it calls the `orderProduct` function.
-
-- Carousel.js
-
-solidity
-import React from "react";
-
-const Carousel = () => {
-  return (
-    <div className="carousel">
-      {/* Carousel implementation */}
-    </div>
-  );
-};
-
-export default Carousel;
-
-
-
-The `Carousel` component represents a slideshow of skincare product images. We'll implement the carousel functionality later.
-
-- Form.js
-
-solidity
-import React, { useState } from "react";
-
-const Form = ({ addProduct }) => {
-  const [brand, setBrand] = useState("");
-  const [image, setImage] = useState("");
-  const [category, setCategory] = useState("");
-  const [deliveredWithin, setDeliveredWithin] = useState("");
-  const [numberOfStock, setNumberOfStock] = useState("");
-  const [amount, setAmount] = useState("");
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    addProduct(brand, image, category, deliveredWithin, numberOfStock, amount);
-    // Reset form fields
-    setBrand("");
-    setImage("");
-    setCategory("");
-    setDeliveredWithin("");
-    setNumberOfStock("");
-    setAmount("");
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <div className="form-group">
-        <label htmlFor="brand">Brand:</label>
-        <input
-          type="text"
-          id="brand"
-          value={brand}
-          onChange={(e) => setBrand(e.target.value)}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label htmlFor="image">Image URL:</label>
-        <input
-          type="text"
-          id="image"
-          value={image}
-          onChange={(e) => setImage(e.target.value)}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label htmlFor="category">Category:</label>
-        <input
-          type="text"
-          id="category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label htmlFor="deliveredWithin">Delivered Within:</label>
-        <input
-          type="text"
-          id="deliveredWithin"
-          value={deliveredWithin}
-          onChange={(e) => setDeliveredWithin(e.target.value)}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label htmlFor="numberOfStock">Number of Stock:</label>
-        <input
-          type="number"
-          id="numberOfStock"
-          value={numberOfStock}
-          onChange={(e) => setNumberOfStock(e.target.value)}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label htmlFor="amount">Amount:</label>
-        <input
-          type="number"
-          id="amount"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          required
-        />
-      </div>
-      <button type="submit">Add Product</button>
-    </form>
-  );
-};
-
-export default Form;
-
-
-
-The `Form` component displays a form for adding a new skincare product. It contains input fields for the brand, image URL, category, delivery time, stock quantity, and price. When the form is submitted, it calls the `addProduct` function and resets the form fields.
-
-*Writing the App Component*
-
-In the `src` directory, open the `App.js` file and replace its contents with the following code:
-
-solidity
-import React, { useState, useEffect, useCallback } from "react";
-import Web3 from "web3";
-import { newKitFromWeb3 } from "@celo/contractkit";
-import BigNumber from "bignumber.js";
-import SKINCARE from "./contracts/Skincare.abi.json";
-import IERC from "./contracts/IERC.abi.json";
-import ProductCard from "./components/ProductCard";
-import Carousel from "./components/Carousel";
-import Form from "./components/Form";
-
-const ERC20_DECIMALS = 18;
-const contractAddress = "0xC628cAd55cD31650014259C7B811A6B2483a8De6";
-const cUSDContractAddress = "0x874069Fa1Eb16D
-
-
-
-## Carousel.jsx
-
-*Importing React*
-
-solidity
-import React from "react";
-
-
-This line imports the React library, which is necessary for creating React components.
-
-*Define the Carousel Component*
-
-solidity
-function Carousel() {
-  return (
-    // JSX code representing the Carousel component
-  );
+```solidity
+function removeTicket(uint _index) external isAdmin(_index) {
+    movies[_index] = movies[moviesLength - 1];
+    delete movies[moviesLength - 1];
+    moviesLength--;
 }
 
+```
 
+The `removeTicket` function allows the movie administrator to remove a movie ticket from the contract. It takes the movie index as a parameter.
 
-The code defines a functional component called `Carousel`. Functional components are a way to define reusable UI components in React. The `Carousel` component returns JSX code that represents the structure and content of the component.
+The function replaces the ticket at the specified index with the ticket stored at the end of the `movies` array. It then deletes the duplicate entry at the end of the array and decrements the `moviesLength` variable.
 
-*Define theJSX Structure of the Carousel Component*
+**Block Tickets**
 
-solidity
-<div className="container containercom">
-  {/* ... */}
-</div>
+We will implement a function to block a certain number of tickets for a movie.
 
+```solidity
+function blockTickets(uint _index, uint _tickets) external isAdmin(_index) isTicketAvailable(_index, _tickets) {
+    movies[_index].ticketsAvailable -= _tickets;
+}
 
+```
 
-The Carousel component consists of a `<div>` element with the classes "container" and "containercom". This `<div>` acts as the main container for the carousel.
+The `blockTickets` function allows the movie administrator to block a certain number of tickets for a movie. It takes the following parameters:
 
-*Create the Carousel Header*
+- `_index`: The index of the movie for which tickets are to be blocked.
+- `_tickets`: The number of tickets to block.
 
-solidity
-<div className="row">
-  <div className="col-6">
-    <h3 className="mb-3 text-secondary">Just For You</h3>
-  </div>
-  <div className="col-6 text-right">
-    {/* ... */}
-  </div>
-</div>
+The function verifies that the requested number of tickets is available for blocking. It then decreases the `ticketsAvailable` value for the specified movie index by the provided number of tickets.
 
+**Buy Movie Tickets**
 
+We will implement two functions to allow users to purchase movie tickets.
 
-Inside the main container, there is a `<div>` element with the class "row". It contains two columns created using Bootstrap's grid system (`col-6 class`). In the first column, there is an `<h3>` element with the text "Just For You" and some additional classes for styling.
-
-*Create Carousel Navigation Buttons*
-
-solidity
-<div className="col-6 text-right">
-  <a
-    className="btn btn-secondary mb-3 mr-1"
-    href="#carouselExampleIndicators2"
-    role="button"
-    data-slide="prev"
-  >
-    <i className="fa fa-arrow-left"></i>
-  </a>
-  <a
-    className="btn btn-secondary mb-3"
-    href="#carouselExampleIndicators2"
-    role="button"
-    data-slide="next"
-  >
-    <i className="fa fa-arrow-right"></i>
-  </a>
-</div>
-
-
-
-In the second column of the header, there are two navigation buttons created as `<a>` elements. They have Bootstrap classes for styling (`btn, btn-secondary`) and Font Awesome icons (`fa fa-arrow-left` and `fa fa-arrow-right`). These buttons are used to navigate to the previous and next carousel items.
-
-*Create the carousel Content*
-
-solidity
-<div className="col-12">
-  <div id="carouselExampleIndicators2" className="carousel slide" data-ride="carousel">
-    <div className="carousel-inner">
-      {/* Carousel items */}
-    </div>
-  </div>
-</div>
-
-
-
-Inside the main container, there is another `<div>` element with the class "col-12". It contains the carousel structure defined by the Bootstrap carousel component. The carousel items will be added inside the `<div>` with the class "carousel-inner".
-
-*Create Carousel Items*
-
-solidity
-<div className="carousel-item active">
-  <div className="row">
-    {/* ... */}
-  </div>
-</div>
-<div className="carousel-item">
-  <div className="row">
-    {/* ... */}
-  </div>
-</div>
-<div className="carousel-item">
-  <div className="row">
-    {/* ... */}
-  </div>
-</div>
-
-
-
-Inside the carousel's inner container, there are multiple carousel items defined as `<div>` elements with the class "carousel-item". Each carousel item contains a `<div>` with the class "row".
-
-*Create Cards within Carousel Items*
-
-solidity
-<div className="col-md-4 mb-3">
-  <div className="card card-size">
-    <img className="img-fluid card-img" alt="100%x280" />
-    <div className="card-body">
-      <h4 className="card-title">Nivea Cream</h4>
-      <p className="card-text">Gentle Care for Skin</p>
-      <a href="#order_product" className="btn btn-primary">
-        Order Product
-      </a>
-    </div>
-  </div>
-</div>
-
-
-
-Within each carousel item, there is a `<div>` element with the class "col-md-4 mb-3". This creates a column within the row that displays a card. The card is defined using the `<div>` with the class "card card-size".
-
-Inside the card, there is an `<img>` element with the class "img-fluid card-img" that represents the image of the product. The `alt` attribute is empty in this code snippet and should be filled with the appropriate image source for each product.
-
-The card's body contains a `<h4>` element with the class "card-title" for the product name, a `<p>` element with the class "card-text" for the product description, and an `<a>` element with the classes "btn btn-primary" for the "Order Product" button.
-
-*Repeat the Steps for Other Products*
-
-The same structure as in Step 8 is repeated for other products within different carousel items. Each product card has a unique image, name, description, and "Order Product" button.
-
-*Complete the Component*
-
-solidity
-return (
-  <div className="container containercom">
-    <div className="row">
-      <div className="col-6">
-        <h3 className="mb-3 text-secondary">Just For You</h3>
-      </div>
-      <div className="col-6 text-right">
-        {/* Navigation Buttons */}
-      </div>
-      <div className="col-12">
-        <div id="carouselExampleIndicators2" className="carousel slide" data-ride="carousel">
-          <div className="carousel-inner">
-            {/* Carousel items */}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+```solidity
+function buyBulkMovieTicket(uint _index, uint _tickets) external payable isTicketForSale(_index) isTicketAvailable(_index, _tickets) {
+    require(msg.sender != movies[_index].admin, "Admin cannot buy tickets");
+    require(
+        IERC20(cUsdTokenAddress).transferFrom(
+msg.sender,
+movies[_index].admin,
+movies[_index].price * _tickets
+),
+"Transfer failed."
 );
+movies[_index].sold += _tickets;
+movies[_index].ticketsAvailable -= _tickets;
+userTickets[msg.sender][_index] += _tickets;
 
+totalRevenue += movies[_index].price * _tickets;
 
+emit TicketPurchase(msg.sender, _index, _tickets);
+}
+The `buyBulkMovieTicket` function allows users to purchase multiple movie tickets at once. It takes the following parameters:
+- `_index`: The index of the movie for which tickets are to be purchased.
+- `_tickets`: The number of tickets to purchase.
 
-Finally, the complete JSX structure of the `Carousel` component is returned. It includes the main container, header, navigation buttons, and the carousel structure with its inner container and items.
+The function verifies that the movie tickets are available for sale and that the requested number of tickets is available. It also ensures that the caller is not the movie administrator.
 
-*Export the Carousel Component*
+The function transfers the required amount of ERC20 tokens from the caller to the movie administrator using the `transferFrom` function of the ERC20 token contract. It then updates the ticket sales and availability data, increments the user's ticket count for the specified movie, and increases the total revenue of the contract.
 
-solidity
-export default Carousel;
+Finally, the function emits a `TicketPurchase` event to notify listeners about the ticket purchase.
 
+```solidity
+function buyMovieTicket(uint _index) public payable isTicketForSale(_index) isTicketAvailable(_index, 1) {
+    require(msg.sender != movies[_index].admin, "Admin cannot buy tickets");
+    require(
+        IERC20(cUsdTokenAddress).transferFrom(
+            msg.sender,
+            movies[_index].admin,
+            movies[_index].price
+        ),
+        "Transfer failed."
+    );
 
+    movies[_index].sold += 1;
+    movies[_index].ticketsAvailable -= 1;
+    userTickets[msg.sender][_index] += 1;
 
-The `Carousel` component is exported as the default export, making it available for use in other files.
+    totalRevenue += movies[_index].price;
 
-## Form.jsx
-
-*Import React and useState*
-
-solidity
-import React, { useState } from "react";
-
-
-
-The `React` object is imported from the "react" package, and the `useState` hook is imported from the "react" package as well. This hook allows us to add state to functional components.
-
-*Define the Form component*
-
-solidity
-export default function Form({ addProduct }) {
-  // Component code goes here
+    emit TicketPurchase(msg.sender, _index, 1);
 }
 
+```
 
+The `buyMovieTicket` function allows users to purchase a single movie ticket. It takes the movie index as a parameter.
 
-The `Form` component is defined as a default export. It takes a prop called `addProduct` which is a function that will be called when the form is submitted.
+The function verifies that the movie ticket is available for sale and that at least one ticket is available. It also ensures that the caller is not the movie administrator.
 
-*Define state and handle Change function*
+Similar to the `buyBulkMovieTicket` function, it transfers the required amount of ERC20 tokens from the caller to the movie administrator using the `transferFrom` function. It updates the ticket sales and availability data, increments the user's ticket count, increases the total revenue, and emits a `TicketPurchase` event.
 
-solidity
-const [editProfileFormData, setEditProfileFormDate] = useState({
-  brand: "",
-  image: "",
-  category: "",
-  deliveredWithin: "",
-  numberOfStock: "",
-  amount: "",
-});
+**Refund Tickets**
 
-const handleChange = (e) => {
-  const { name, value } = e.target;
-  setEditProfileFormDate({ ...editProfileFormData, [name]: value });
-};
+We will implement a function to allow users to refund their purchased tickets.
 
+```solidity
+function refundTickets(uint _index, uint _tickets) external {
+    require(_tickets > 0, "Number of tickets must be greater than zero");
+    require(userTickets[msg.sender][_index] >= _tickets, "Insufficient tickets for refund");
 
+    uint refundAmount = movies[_index].price * _tickets;
 
-The `useState` hook is used to define the `editProfileFormData` state object. It contains properties for the brand, image, category, deliveredWithin, numberOfStock, and amount of the product, all initially set to an empty string.
+    require(
+        IERC20(cUsdTokenAddress).transferFrom(
+            movies[_index].admin,
+            msg.sender,
+            refundAmount
+        ),
+        "Transfer failed."
+    );
 
-The `handleChange` function is defined to update the state values whenever the user types into the input fields. It uses object destructuring to extract the `name` and `value` from the event target (input field) and then calls `setEditProfileFormDate` to update the corresponding property in the state object.
+    movies[_index].sold -= _tickets;
+    movies[_index].ticketsAvailable += _tickets;
+    userTickets[msg.sender][_index] -= _tickets;
 
-*Define hand Submit function*
+    totalRevenue -= refundAmount;
 
-solidity
-function handSubmit(e) {
-  e.preventDefault();
-
-  addProduct(
-    editProfileFormData.brand,
-    editProfileFormData.image,
-    editProfileFormData.category,
-    editProfileFormData.deliveredWithin,
-    editProfileFormData.numberOfStock,
-    editProfileFormData.amount
-  );
+    emit TicketRefund(msg.sender, _index, _tickets);
 }
 
+```
 
+The `refundTickets` function allows users to refund their purchased tickets. It takes the following parameters:
 
-The `handSubmit` function is called when the form is submitted. It prevents the default form submission behavior to avoid page refresh.
+- `_index`: The index of the movie for which tickets are to be refunded.
+- `_tickets`: The number of tickets to be refunded.
 
-The `addProduct` function (passed as a prop) is called with the values from the `editProfileFormData` state object as arguments. This allows the parent component to handle the submission and process the product data.
+The function verifies that the requested number of tickets to be refunded is greater than zero and that the user has enough tickets to refund for the specified movie.
 
-*Render the Form component*
+It calculates the refund amount by multiplying the ticket price with the number of tickets to be refunded.
 
-solidity
-return (
-  <div className="form" onSubmit={(e) => handSubmit(e)}>
-    {/* Form JSX goes here */}
-  </div>
-);
+Using the `transferFrom` function of the ERC20 token contract, it transfers the refund amount from the movie administrator back to the user.
 
+Then, it updates the ticket sales and availability data, decrements the user's ticket count, reduces the total revenue of the contract, and emits a `TicketRefund` event to notify listeners about the ticket refund.
 
+**Additional Helper Functions**
 
-The component returns JSX representing the form. It wraps the form content in a `<div>` with the class "form" and sets the `onSubmit` event to call the `handSubmit` function.
-
-*Render the form content*
-
-The JSX code within the `return` statement represents the form content. It includes a container `<div>`, a `<form>` element, and various form fields for the product information.
-
-Each input field is associated with a corresponding property in the `editProfileFormData` state object. The `value` attribute is set to the corresponding state value, and the `onChange` event is set to call the `handleChange` function.
-
-The last `<div>` contains a submit button that triggers the form submission.
-
-That's the breakdown of the provided code. The `Form` component can be used within a React application to render a form for adding a product, and the entered data can be captured and processed using the `addProduct` prop function.
-
-*Assign unique IDs to input fields*
-
-solidity
-<label htmlFor="inputName" className="col-4 col-form-label">
-  Name
-</label>
-<div className="col-8">
-  <input
-    type="text"
-    className="form-control"
-    value={editProfileFormData.brand}
-    name="brand"
-    onChange={(e) => handleChange(e)}
-    id="inputName"
-    placeholder=" Name"
-  />
-</div>
-
-
-
-Each input field in the form has a unique `id` attribute associated with the `label` element. This is done to improve accessibility. The `htmlFor` attribute of the `label` element references the corresponding `id` of the input field.
-
-*Implement form submission*
-
-solidity
-<form>
-  {/* Form fields */}
-  <div className="mb-3 row">
-    <div className="offset-sm-4 col-sm-8">
-      <button
-        type="submit"
-        className="btn btn-primary long-btn btn-secondary"
-      >
-        ADD PRODUCT
-      </button>
-    </div>
-  </div>
-</form>
-
-
-
-The form is wrapped within a `<form>` element. Inside the form, there are several `<div>` elements containing the form fields.
-
-The last `<div>` contains the submit button, which triggers the form submission when clicked. The button has a type of "submit" and a class of "btn btn-primary long-btn btn-secondary" for styling purposes.
-
-*Handle form submission*
-
-solidity
-<div className="form" onSubmit={(e) => handSubmit(e)}>
-  {/* Form content */}
-</div>
-
-
-
-The `onSubmit` event is attached to the outermost `<div>` wrapping the form content. The `handSubmit` function is passed as the event handler and will be called when the form is submitted.
-
-*Export the Form component*
-
-solidity
-export default function Form({ addProduct }) {
-  // Component code
+```solidity
+function getTicketsLength() public view returns (uint) {
+    return moviesLength;
 }
 
+```
 
+The `getTicketsLength` function returns the total number of movies in the contract.
 
-Finally, the `Form` component is exported as the default export of the module, allowing it to be imported and used in other parts of the application.
-
-To use this component in your application, you would import it and pass the `addProduct` function as a prop. The `addProduct` function should handle the logic for adding the product to your data store or performing any other necessary actions.
-
-That's the breakdown of the provided code. It demonstrates a basic form component in React that captures user input for a product and allows the data to be submitted.
-
-*Define the `handleChange` function*
-
-solidity
-const handleChange = (e) => {
-  const { name, value } = e.target;
-  setEditProfileFormDate({ ...editProfileFormData, [name]: value });
-};
-
-
-
-The `handleChange` function is called whenever the value of an input field changes. It takes an event object `e` as an argument and extracts the `name` and `value` properties from the target input element.
-
-Using destructuring assignment, the `name` and `value` are extracted from `e.target`. The `name` corresponds to the `name` attribute of the input field, and the `value` is the new value entered by the user.
-
-The `setEditProfileFormDate` function is then called with the spread syntax (`...editProfileFormData`) to create a copy of the current `editProfileFormData` state object. The `[name]: value` syntax is used to update the specific field identified by `name` with the new `value`.
-
-*Define the `handSubmit` function*
-
-solidity
-function handSubmit(e) {
-  e.preventDefault();
-
-  addProduct(
-    editProfileFormData.brand,
-    editProfileFormData.image,
-    editProfileFormData.category,
-    editProfileFormData.deliveredWithin,
-    editProfileFormData.numberOfStock,
-    editProfileFormData.amount
-  );
+```solidity
+function getUserTickets(address _user, uint _index) public view returns (uint) {
+    return userTickets[_user][_index];
 }
 
+```
 
+The `getUserTickets` function returns the number of tickets owned by a specific user for a given movie index.
 
-The `handSubmit` function is called when the form is submitted. It takes an event object `e` as an argument.
-
-The first line `e.preventDefault()` prevents the default form submission behavior, which would cause a page refresh.
-
-The `addProduct` function, passed as a prop to the `Form` component, is then called with the values from the `editProfileFormData` state object as arguments. These values represent the input fields' values entered by the user.
-
-*Render the form*
-
-solidity
-return (
-  <div className="form" onSubmit={(e) => handSubmit(e)}>
-    <div className="container conti">
-      <form>
-        {/* Form fields */}
-        {/* Submit button */}
-      </form>
-    </div>
-  </div>
-);
-
-
-
-In the `return` statement, the form is rendered inside a containing `<div>` with the class name "form". The `onSubmit` event is attached to this `<div>`, and it calls the `handSubmit` function when the form is submitted.
-
-The form itself is wrapped in a `<form>` element, and the form fields and submit button are rendered inside it.
-
-*Export the `Form` component*
-
-solidity
-export default function Form({ addProduct }) {
-  // Component code
+```solidity
+function getTotalRevenue() public view returns (uint) {
+    return totalRevenue;
 }
 
+```
 
-
-Finally, the `Form` component is exported as the default export of the module, allowing it to be imported and used in other parts of the application.
-
-To use this `Form` component in your application, you would import it and include it in your parent component, passing the `addProduct` function as a prop. The `addProduct` function should handle the logic for adding the product to your data store or performing any other necessary actions.
-
-## productCard.jsx
-
-*Import React*
-
-solidity
-import React from "react";
-
-
-
-We start by importing the `React` module, which is required to define and use React components.
-
-*Define the ProductCard component*
-
-solidity
-export default function ProductCard({
-  orderProduct,
-  id,
-  brand,
-  image,
-  category,
-  deliveredWithin,
-  numberOfStock,
-  amount,
-}) {
-  // Component code
-}
-
-
-
-The `ProductCard` component is defined as a functional component using the `function` syntax. It takes an object as its argument, which contains the props passed to the component. These props represent the data for a specific product.
-
-*Render the product card*
-
-solidity
-return (
-  <div className="card m-3" style={{ width: " 350px" }} key={id}>
-    {/* Product image */}
-    {/* Product details */}
-    {/* Order button */}
-  </div>
-);
-
-
-
-The `return` statement defines the JSX code to be rendered by the component. In this case, a `<div>` element with the class name "card" is created. It has some styling applied to set its width to 350 pixels. The `key` attribute is set to the `id` prop value to help React efficiently update and re-render the component when needed.
-
-*Render the product image*
-
-solidity
-<div className="image-div">
-  <img src={image} className="card-img-top" alt="..." />
-</div>
-
-
-
-Inside the `<div>` element, an `<img>` element is rendered with the `src` attribute set to the value of the `image` prop. The `className` is set to "card-img-top" to apply appropriate styling, and the `alt` attribute is set to "..." to provide alternative text for the image.
-
-*Render the product details*
-
-solidity
-<div className="card-body">
-  <h5 className="card-title d-flex">
-    {/* Product brand and category */}
-    {/* Product price */}
-  </h5>
-  <ul className="nav flex-column">
-    {/* Delivery time */}
-    {/* Stock count */}
-  </ul>
-</div>
-
-
-
-Within the `<div>` element with the class name "card-body", the product details are rendered. The product brand and category are displayed inside an `<h5>` element with the class name "card-title". The `d-flex` class is added to make the content flexible and align it properly.
-
-The product price is rendered inside a `<div>` element with the class name "price". The `ms-auto` class is added to push it to the right edge of the card.
-
-The delivery time and stock count are rendered as list items (`<li>`) within a `<ul>` element with the class name "nav flex-column". Each detail is wrapped in a `<b>` element for bold styling.
-
-*Render the order button*
-
-solidity
-<button className="btn btn-primary" onClick={() => orderProduct(id)}>
-  Order
-</button>
-
-
-
-A `<button>` element is rendered with the class name "btn btn-primary". When clicked, it triggers the `onClick` event and calls the `orderProduct` function passed as a prop, passing the `id` prop value as an argument.
-
-*Export the ProductCard component*
-
-solidity
-export default ProductCard;
-
-
-
-The `ProductCard` component is exported as the default export of the module so that it can be imported and used in other parts of the application.
-
-That's it! You have now created a reusable `ProductCard` component that can render product information in a card format. This component can be used in a larger application to display multiple product cards dynamically.
-
-Here's an example of how you can use the `ProductCard` component in a parent component:
-
-solidity
-import React from "react";
-import ProductCard from "./ProductCard";
-
-export default function ProductList({ products, orderProduct }) {
-  return (
-    <div className="product-list">
-      {products.map((product) => (
-        <ProductCard
-          key={product.id}
-          orderProduct={orderProduct}
-          {...product}
-        />
-      ))}
-    </div>
-  );
-}
-
-
-
-In the example above, the `ProductList` component receives an array of `products` as a prop. It iterates over each product and renders a `ProductCard` component for each one. The `orderProduct` function is passed as a prop to the `ProductCard` component, allowing interaction with the order button.
-
-By encapsulating the product card rendering logic in the `ProductCard` component, you can reuse it throughout your application, ensuring consistency and reducing code duplication.
+The `getTotalRevenue` function returns the total revenue generated by ticket sales in the contract.
 
 ## Deployment
 
@@ -1110,11 +635,11 @@ Next connect your celo wallet, select the contract you want to deploy and finall
 
 ## Conclusion
 
-In this tutorial, we've explained the code for the SkincareProduct smart contract in detail. The contract allows users to add skincare products, retrieve product details, and order products using a custom token. It demonstrates various concepts such as structs, mappings, events, and interactions with external contracts.
+Congratulations! You have successfully implemented a Movie Tickets smart contract using Solidity. The contract allows movie administrators to add movies, manage ticket availability, sell tickets to users, refund tickets, and track revenue
 
 ## Next Steps
 
-Here are some relevant links that would aid your learning further.
+With us coming to the end of this tutorial, I hope you've learned on how to build a Movie Ticket Smart Contract on the Celo Blockchain. Here are some relevant links that would aid your learning further.
 
 - [Official Celo Docs](https://docs.celo.org/)
 - [Official Solidity Docs](https://docs.soliditylang.org/en/v0.8.17/)
