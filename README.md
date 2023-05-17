@@ -5,6 +5,56 @@ authors:
   - name: ayohenryolayemi
 ---
 
+# Table of content
+- [Introduction](#introduction)
+- [Prerequisites](#prerequisites)
+- [Smart Contract](#smart-contract)
+  - [How The Contract Works](#how-the-contract-works)
+  - [Contract Overview](#contract-overview)
+  - [Adding a Car](#adding-a-car)
+  - [Retrieving Car Information](retrieving-car-information)
+  - [Interacting with Cars](#interacting-with-cars)
+  - [Buying a Car](#buying-a-car)
+  - [Additional Helper Functions](#additional-helper-functions)
+- [Frontend](#frontend)
+  - [Importing Dependencies](#importing-dependencies)
+  - [Initializing Variables and Constants](#initializing-variables-and-constants)
+  - [Connect to Wallet Function](#connect-to-wallet-function)
+  - [Get User Balance and Car Data](#get-user-balance-and-car-data)
+  - [Add Car](#add-car)
+  - [Like, Dislike, and Add Review](#like-dislike-and-add-review)
+  - [Addcar.js](#addcarjs)
+  - [Wrapping up](#wrapping-up)
+- [Cars.js](#carsjs)
+  - [Import React and useState](#import-react-and-usestate)
+  - [Create the Cars Component](#create-the-cars-component)
+  - [Export the Cars component](#export-the-cars-component)
+  - [Initialize State](#initialize-state)
+  - [Render Car Cards](#render-car-cards)
+  - [Display Car Information](#display-car-information)
+  - [Like/Dislike Buttons](#likedislike-buttons)
+  - [Display Likes and Dislikes](#display-likes-and-dislikes)
+  - [Add Review Form](#add-review-form)
+  - [Display Car Reviews](#display-car-reviews)
+  - [Export the Cars Component](#export-the-cars-component)
+  - [Import the Cars Component in App.js](#import-the-cars-component-in-appjs)
+  - [Add the Cars Component to the Rendered JSX](#add-the-cars-component-to-the-rendered-jsx)
+  - [Implement the AddCar Component](#implement-the-addcar-component)
+  - [Implement the Cars Component](#implement-the-cars-component)
+  - [Update App.js to Use the Cars Component](#update-appjs-to-use-the-cars-component)
+  - [Add Styling to the Components](add-styling-to-the-components)
+  - [Test the Application](#test-the-application)
+- [NavigationBar.js](#navigationbarjs)
+  - [Importing Dependencies](#importing-dependencies)
+  - [Creating the NavigationBar Component](#creating-the-navigationbar-component)
+  - [Navigation Bar JSX](#navigation-bar-jsx)
+  - [Exporting the NavigationBar Component](#exporting-the-navigationbar-component)
+  - [Invoking the NavigationBar Component](#invoking-the-navigationbar-component)
+- [Deployment](#deployment)
+- [Conclusion](#conclusion)
+- [Next Steps](#next-steps)
+    
+
 ## Introduction
 
 In this tutorial, we will walk you through a smart contract called `Carcompanies` that allows users to interact with a decentralized car marketplace. The smart contract enables users to add cars for sale, buy cars, leave reviews, and interact with the marketplace.
@@ -13,7 +63,7 @@ In this tutorial, we will walk you through a smart contract called `Carcompanies
 
 To follow along with this tutorial, you should have a basic understanding of Ethereum, Solidity programming language, and the concepts of smart contracts.
 
-## SmartContract
+## Smart Contract
 
 Let's begin writing our smart contract in Remix IDE
 
@@ -39,6 +89,10 @@ interface IERC20Token {
 }
 
 
+/**
+ * @title Carcompanies
+ * @dev A smart contract for managing car companies and their cars.
+ **/
 contract Carcompanies {
 
     uint internal carLength = 0;
@@ -68,7 +122,62 @@ contract Carcompanies {
     mapping (uint256=> Car) internal cars;
     mapping (uint => Review[]) internal reviewsMap;// mapping reviews
 
+    /**
+     * @dev Event emitted when a new car is added to the contract.
+     * @param owner The address of the car owner.
+     * @param brand The brand of the car.
+     * @param model The model of the car.
+     * @param image The image of the car.
+     * @param price The price of the car.
+     * @param carsAvailable The number of cars available.
+     **/
+    event CarAdded(
+    address indexed owner,
+    string brand,
+    string model,
+    string image,
+    uint price,
+    uint carsAvailable
+    );
 
+     /**
+     * @dev Event emitted when a car is liked.
+     * @param index The index of the car.
+     * @param likes The updated number of likes for the car.
+     **/
+    event CarLiked(uint indexed index, uint likes);
+
+    /**
+     * @dev Event emitted when a car is disliked.
+     * @param index The index of the car.
+     * @param dislikes The updated number of dislikes for the car.
+    **/  
+    event CarDisliked(uint indexed index, uint dislikes);
+
+    /**
+     * @dev Event emitted when a review is added to a car.
+     * @param index The index of the car.
+     * @param reviewerAddress The address of the reviewer.
+     * @param reviewerMessage The message of the review.
+    **/
+    event CarReviewed(uint indexed index, address reviewerAddress, string reviewerMessage);
+
+    /**
+     * @dev Event emitted when a car is bought.
+     * @param index The index of the car.
+     * @param buyer The address of the buyer.
+    **/
+    event CarBought(uint indexed index, address buyer);
+
+
+    /**
+     * @dev Adds a new car to the contract.
+     * @param _brand The brand of the car.
+     * @param _model The model of the car.
+     * @param _image The image of the car.
+     * @param _price The price of the car.
+     * @param _carsAvailable The number of cars available.
+    **/
     function addCar(
         string memory _brand,
         string memory _model,
@@ -76,6 +185,11 @@ contract Carcompanies {
         uint _price,
         uint _carsAvailable
     )public{
+        require(bytes(_brand).length > 0, "Brand should not be empty");
+        require(bytes(_model).length > 0, "Model should not be empty");
+        require(bytes(_image).length > 0, "Image should not be empty");
+        require(_price > 0, "Price should be greater than zero");
+        require(_carsAvailable > 0, "Cars available should be greater than zero");
         uint _numberOfreview = 0;
 
 
@@ -91,20 +205,37 @@ contract Carcompanies {
             _numberOfreview
         );
         carLength++;
+        emit CarAdded(msg.sender, _brand, _model, _image, _price, _carsAvailable);
     }
 
+     /**
+     * @dev Retrieves the details of a car.
+     * @param _index The index of the car.
+     * @return owner The address of the car owner.
+     * @return brand The brand of the car.
+     * @return model The model of the car.
+     * @return image The image of the car.
+     * @return likes The number of likes for the car.
+     * @return dislikes The number of dislikes for the car.
+     * @return price The price of the car.
+     * @return carsAvailable The number of cars available.
+     * @return numberOfreview The number of reviews for the car.
+     * @return reviews The array of reviews for the car.
+     **/   
     function getCar(uint _index)public view returns(
-        address payable,
-        string memory,
-        string memory,
-        string memory,
-        uint,
-        uint,
-        uint,
-        uint,
-        uint,
+        address payable owner,
+        string memory brand,
+        string memory model,
+        string memory image,
+        uint likes,
+        uint dislikes,
+        uint price,
+        uint carsAvailable,
+        uint numberOfreview,
         Review[] memory
     ){
+        require(_index < carLength, "Invalid car index");
+
         Car memory c = cars[_index];
         Review[] memory reviews = reviewsMap[_index];
         return (
@@ -121,27 +252,50 @@ contract Carcompanies {
         );
     }
 
-    // like the car
+    /**
+     * @dev Increases the like count for a car.
+     * @param _index The index of the car.
+     **/
     function likeCar(uint _index)public{
+        require(_index < carLength, "Invalid car index");
+        require(cars[_index].owner != msg.sender, "Cannot like your own car");
         require(cars[_index].owner != msg.sender);
         cars[_index].likes++;
+        emit CarLiked(_index, cars[_index].likes);
     }
 
-    // leave a dislike for the car
+    /**
+     * @dev Increases the dislike count for a car.
+     * @param _index The index of the car.
+    **/
     function dislikeCar(uint _index)public{
+        require(_index < carLength, "Invalid car index");
+        require(cars[_index].owner != msg.sender, "Cannot dislike your own car");
          require(cars[_index].owner != msg.sender);
         cars[_index].dislikes++;
+        emit CarDisliked(_index, cars[_index].dislikes);
     }
 
-       // add a revie to a book
+    /**
+     * @dev Adds a review to a car.
+     * @param _index The index of the car.
+     * @param _reviews The review message.
+    **/
    function addReview(uint _index, string memory _reviews) public{
-     require(cars[_index].owner != msg.sender);
-    reviewsMap[_index].push(Review(_index, address(msg.sender), _reviews));
-    cars[_index].numberOfreview++;
-  }
+       require(_index < carLength, "Invalid car index");
+        require(cars[_index].owner != msg.sender, "Cannot review your own car");
+        require(cars[_index].owner != msg.sender);
+        reviewsMap[_index].push(Review(_index, address(msg.sender), _reviews));
+        cars[_index].numberOfreview++;
+        emit CarReviewed(_index, msg.sender, _reviews);
+    }
 
-
-function buyCar(uint _index) public payable  {
+    /**
+     * @dev Buys a car.
+     * @param _index The index of the car.
+    **/
+    function buyCar(uint _index) public payable  {
+        require(_index < carLength, "Invalid car index");
         require(cars[_index].carsAvailable > 0, "sold out");
         require(
           IERC20Token(cUsdTokenAddress).transferFrom(
@@ -152,18 +306,28 @@ function buyCar(uint _index) public payable  {
           "Can not perform transactions."
         );
         cars[_index].carsAvailable--;
+
+        emit CarBought(_index, msg.sender);
     }
 
-    //acquiring length of cars
+     /**
+     * @dev Retrieves the length of the cars array.
+     * @return The length of the cars array.
+     **/
     function getCarLength() public view returns (uint){
         return (carLength);
     }
 
-    // acquiring length of reviews 
+    /**
+     * @dev Retrieves the length of the reviews array for a specific car.
+     * @param _index The index of the car.
+     * @return The length of the reviews array.
+    **/
     function getReviewsLength(uint _index) public view returns (uint) {
+        require(_index < carLength, "Invalid car index");
         return reviewsMap[_index].length;
     }
-} 
+}
 
 ```
 
@@ -171,7 +335,7 @@ function buyCar(uint _index) public payable  {
 
 Let's explain how the contract works!
 
-**Contract Overview**
+### Contract Overview
 
 Let's start by understanding the purpose and structure of the smart contract.
 
@@ -225,65 +389,148 @@ Next, the contract defines two structs: `Review` and `Car`. The Review struct re
 
 The contract also includes two mappings: `cars` and `reviewsMap`. The `cars` mapping maps a car index to its corresponding Car struct, allowing efficient retrieval of car information. The `reviewsMap` mapping maps a car index to an array of `Review` structs, enabling multiple reviews for each car.
 
-**Adding a Car**
+### Adding a Car
 
 Let's continue by implementing the functionality to add a car for sale.
 
 ```solidity
-function addCar(
-    string memory _brand,
-    string memory _model,
-    string memory _image,
-    uint _price,
-    uint _carsAvailable
-) public {
-    // Add car logic
-}
+ /**
+     * @dev Adds a new car to the contract.
+     * @param _brand The brand of the car.
+     * @param _model The model of the car.
+     * @param _image The image of the car.
+     * @param _price The price of the car.
+     * @param _carsAvailable The number of cars available.
+    **/
+    function addCar(
+        string memory _brand,
+        string memory _model,
+        string memory _image,
+        uint _price,
+        uint _carsAvailable
+    )public{
+        require(bytes(_brand).length > 0, "Brand should not be empty");
+        require(bytes(_model).length > 0, "Model should not be empty");
+        require(bytes(_image).length > 0, "Image should not be empty");
+        require(_price > 0, "Price should be greater than zero");
+        require(_carsAvailable > 0, "Cars available should be greater than zero");
+        uint _numberOfreview = 0;
+
+
+        cars[carLength] = Car(
+            payable(msg.sender),
+            _brand,
+            _model,
+            _image,
+            0,
+            0,
+            _price,
+            _carsAvailable,
+            _numberOfreview
+        );
+        carLength++;
+        emit CarAdded(msg.sender, _brand, _model, _image, _price, _carsAvailable);
+    }
 
 ```
 
 The `addCar` function allows a user to add a car to the marketplace. It takes parameters such as the brand, model, image URL, price, and available quantity of the car. Inside the function, a new `Car` struct is created with the provided details, and the car is added to the cars mapping. The `carLength` variable is incremented to keep track of the total number of cars.
 
-**Retrieving Car Information**
+### Retrieving Car Information
 
 Let's implement the functionality to retrieve information about a car.
 
 ```solidity
-function getCar(uint _index) public view returns (
-    address payable,
-    string memory,
-    string memory,
-    string memory,
-    uint,
-    uint,
-    uint,
-    uint,
-    uint,
-    Review[] memory
-) {
-    // Retrieve car information logic
-}
+ /**
+     * @dev Retrieves the details of a car.
+     * @param _index The index of the car.
+     * @return owner The address of the car owner.
+     * @return brand The brand of the car.
+     * @return model The model of the car.
+     * @return image The image of the car.
+     * @return likes The number of likes for the car.
+     * @return dislikes The number of dislikes for the car.
+     * @return price The price of the car.
+     * @return carsAvailable The number of cars available.
+     * @return numberOfreview The number of reviews for the car.
+     * @return reviews The array of reviews for the car.
+     **/   
+    function getCar(uint _index)public view returns(
+        address payable owner,
+        string memory brand,
+        string memory model,
+        string memory image,
+        uint likes,
+        uint dislikes,
+        uint price,
+        uint carsAvailable,
+        uint numberOfreview,
+        Review[] memory
+    ){
+        require(_index < carLength, "Invalid car index");
+
+        Car memory c = cars[_index];
+        Review[] memory reviews = reviewsMap[_index];
+        return (
+            c.owner,
+            c.brand,
+            c.model,
+            c.image,
+            c.likes,
+            c.dislikes,
+            c.price,
+            c.carsAvailable,
+            c.numberOfreview,
+            reviews
+        );
+    }
 
 ```
 
 The `getCar` function takes the index of a car as a parameter and returns various details about the car, including the owner's address, brand, model, image URL, likes, dislikes, price, available quantity, the number of reviews, and an array of reviews. It retrieves the `Car` struct associated with the provided index from the `cars` mapping and returns the corresponding information.
 
-**Interacting with Cars**
+### Interacting with Cars
 
 Let's implement functions to interact with cars, such as liking, disliking, and adding reviews.
 
 ```solidity
-function likeCar(uint _index) public {
-    // Like car logic
-}
+/**
+     * @dev Increases the like count for a car.
+     * @param _index The index of the car.
+     **/
+    function likeCar(uint _index)public{
+        require(_index < carLength, "Invalid car index");
+        require(cars[_index].owner != msg.sender, "Cannot like your own car");
+        require(cars[_index].owner != msg.sender);
+        cars[_index].likes++;
+        emit CarLiked(_index, cars[_index].likes);
+    }
 
-function dislikeCar(uint _index) public {
-    // Dislike car logic
-}
+    /**
+     * @dev Increases the dislike count for a car.
+     * @param _index The index of the car.
+    **/
+    function dislikeCar(uint _index)public{
+        require(_index < carLength, "Invalid car index");
+        require(cars[_index].owner != msg.sender, "Cannot dislike your own car");
+         require(cars[_index].owner != msg.sender);
+        cars[_index].dislikes++;
+        emit CarDisliked(_index, cars[_index].dislikes);
+    }
 
-function addReview(uint _index, string memory _reviews) public {
-    // Add review logic
-}
+    /**
+     * @dev Adds a review to a car.
+     * @param _index The index of the car.
+     * @param _reviews The review message.
+    **/
+   function addReview(uint _index, string memory _reviews) public{
+       require(_index < carLength, "Invalid car index");
+        require(cars[_index].owner != msg.sender, "Cannot review your own car");
+        require(cars[_index].owner != msg.sender);
+        reviewsMap[_index].push(Review(_index, address(msg.sender), _reviews));
+        cars[_index].numberOfreview++;
+        emit CarReviewed(_index, msg.sender, _reviews);
+    }
 
 ```
 
@@ -293,31 +540,57 @@ The `dislikeCar` function enables a user to `dislike` a car. It increments the d
 
 The `addReview` function allows a user to add a review for a car. It takes the index of the car and the review message as parameters. A new `Review` struct is created with the provided details and added to the `reviewsMap` mapping, associated with the corresponding car index. The `numberOfreview` counter for the car is incremented to keep track of the total number of reviews.
 
-**Buying a Car**
+### Buying a Car
 
 Let's implement the functionality to buy a car from the marketplace.
 
 ```solidity
-function buyCar(uint _index) public payable {
-    // Buy car logic
-}
+/**
+     * @dev Buys a car.
+     * @param _index The index of the car.
+    **/
+    function buyCar(uint _index) public payable  {
+        require(_index < carLength, "Invalid car index");
+        require(cars[_index].carsAvailable > 0, "sold out");
+        require(
+          IERC20Token(cUsdTokenAddress).transferFrom(
+            msg.sender,
+            cars[_index].owner,
+            cars[_index].price
+          ),
+          "Can not perform transactions."
+        );
+        cars[_index].carsAvailable--;
+
+        emit CarBought(_index, msg.sender);
+    }
 
 ```
 
 The `buyCar` function allows a user to purchase a car from the marketplace. It takes the index of the car as a parameter. The function checks if the car is available for purchase by verifying the `carsAvailable` field in the corresponding `Car` struct. If the car is available, it transfers the specified `price` of the car from the buyer's address to the car's owner using the custom ERC20 token. The `carsAvailable` counter is decremented to reflect the reduced availability of the car.
 
-**Additional Helper Functions**
+### Additional Helper Functions
 
 Let's implement two additional helper functions to retrieve the length of the car array and the number of reviews for a specific car.
 
 ```solidity
-function getCarLength() public view returns (uint) {
-    // Get car length logic
-}
+ /**
+     * @dev Retrieves the length of the cars array.
+     * @return The length of the cars array.
+     **/
+    function getCarLength() public view returns (uint){
+        return (carLength);
+    }
 
-function getReviewsLength(uint _index) public view returns (uint) {
-    // Get reviews length logic
-}
+    /**
+     * @dev Retrieves the length of the reviews array for a specific car.
+     * @param _index The index of the car.
+     * @return The length of the reviews array.
+    **/
+    function getReviewsLength(uint _index) public view returns (uint) {
+        require(_index < carLength, "Invalid car index");
+        return reviewsMap[_index].length;
+    }
 
 ```
 
@@ -325,9 +598,9 @@ The `getCarLength` function returns the total number of cars in the marketplace 
 
 The `getReviewsLength` function takes the index of a car as a parameter and returns the total number of reviews for that car by retrieving the length of the corresponding array in the `reviewsMap` mapping.
 
-### Frontend
+## Frontend
 
-**Importing Dependecies**
+### Importing Dependencies
 
 The code begins by importing necessary dependencies and components for the application. It imports the `NavigationBar`, `AddCar`, `useState`, `useEffect`, and other required libraries.
 
@@ -346,11 +619,11 @@ import { Cars } from './components/Cars';
 ```
 Here, the code imports CSS styles from App.css, various components such as `NavigationBar`, `AddCar`, and `Cars` from their respective files, and several libraries including React hooks like `useState`, `useEffect`, and `useCallback`. It also imports Web3, ContractKit, and other JSON files containing the ABIs (Application Binary Interface) for the smart contracts.
 
-**Initializing Variables and Constants**
+### Initializing Variables and Constants
 
 Next, the code initializes variables and constants required for the application. It sets the contract address, cUSD contract address, and ERC20 decimal value. These values are used to interact with the smart contract and handle token transactions.
 
-**Connect to Wallet Function**
+### Connect to Wallet Function
 
 The next step is to define a function that connects the application to the user's wallet:
 
@@ -380,7 +653,7 @@ const connectToWallet = async () => {
 ```
 This function uses the `window.celo` object to enable the user's wallet. It creates a `web3` instance using the Celo provider and initializes a ContractKit instance `using newKitFromWeb3`.
 
-**Get User Balance and Car Data**
+### Get User Balance and Car Data
 
 ```solidity
 const getBalance = useCallback(async () => {
@@ -427,11 +700,11 @@ const getCar = useCallback(async () => {
 ```
 The `getBalance` function retrieves the user's cUSD token balance. It uses the ContractKit instance and the user's address to get the total balance. The balance is converted to a readable format with the specified decimal places and stored in the `cUSDBalance` state variable.
 
-**Get Cars**
+### Get Cars
 
 The `getCar` function retrieves information about the cars from the smart contract. It uses the `getCarLength` and `getCar` functions of the contract to get the total number of cars and retrieve the details of each car. The car details are mapped to an array of car objects and stored in the `car` state variable.
 
-**Add Car**
+### Add Car
 
 ```solidity
 const addCar = async (_brand, _model, _image, price, _carsAvailable) => {
@@ -450,7 +723,7 @@ const addCar = async (_brand, _model, _image, price, _carsAvailable) => {
 ```
 The `addCar` function allows users to add a new car to the marketplace. It takes the brand, model, image URL, price, and available quantity as parameters. The function converts the price to the required format and calls the `addCar` function of the smart contract, passing the provided details. After adding the car, it calls the `getCar` function to update the car list.
 
-**Like, Dislike, and Add Review**
+### Like, Dislike, and Add Review
 
 ```solidity
 const likeCar = async (index) => {
@@ -509,7 +782,7 @@ The `addReview` function allows users to add a review to a specific car. It take
 
 The `buyCar` function enables users to purchase a car from the marketplace. It first creates an instance of the cUSD contract using the ContractKit provider. It then approves the smart contract to spend the required amount of cUSD tokens by calling `approve` on the cUSD contract. After approval, it calls the `BuyCar` method of the smart contract, passing the car index and the user's address. Finally, it updates the car data and the user's balance by calling `getCar` and `getBalance`, respectively, and displays a success message.
 
-**Lifecycle Hooks and Render**
+### Lifecycle Hooks and Render
 The code utilizes several lifecycle hooks to perform actions at specific times during the component's lifecycle.
 
 ```javascript
@@ -568,7 +841,7 @@ The smart contract defines the functionality for adding cars, managing reviews, 
 
 ### Addcar.js
 
-**Import the required dependencies**
+### Import the required dependencies
 
 ```Solidity
 import React from 'react';
@@ -654,7 +927,7 @@ return (
 ```
 In the `return` statement, we define the JSX markup for the form. It consists of several input fields for the car brand, model, image URL, price, and number of cars available. Each input field is associated with a corresponding state variable and uses the `onChange` event to update the state when the user enters data. The "Add Car" button triggers the `props.addCar` function when clicked, passing the entered values as arguments.
 
-**Export the `AddCar` component**
+### Export the `AddCar` component
 
 ```Solidity
 export default AddCar;
@@ -680,7 +953,7 @@ In the button element, we set the `onClick` event to trigger the props.addCar fu
 
 By passing the `addCar` function as a prop to the `AddCar` component, we allow the parent component to define the logic for adding a car and handle the data accordingly.
 
-**Return the JSX markup**
+### Return the JSX markup
 
 ```Solidity
 return (
@@ -696,7 +969,7 @@ return (
 
 We return the JSX markup for the  `AddCar` component, which includes the form elements for entering car details.
 
-**Export the `AddCar` component**
+### Export the `AddCar` component
 
 ```Solidity
 export default AddCar;
@@ -745,7 +1018,7 @@ The `addCar` function is defined within the `App` component and serves as the ha
 
 By passing the `addCar` function as a prop to the `AddCar` component, we enable communication between the `AddCar` component and the parent `App` component. The `AddCar` component can trigger the `addCar` function when the user submits the form, passing the entered car details as arguments.
 
-**Completing the `addCar` function logic**
+### Completing the `addCar` function logic
 
 Within the `App` component, you need to implement the logic for the `addCar` function to handle the addition of a new car. This logic will depend on your specific requirements and the technologies you're using. Here's an example implementation:
 
@@ -777,7 +1050,7 @@ By completing the logic for the `addCar` function, you enable the ability to add
 
 That's it! You have now integrated the `AddCar` component into your application, allowing users to add new cars and perform the necessary actions associated with adding car data.
 
-**Styling the `AddCar` component**
+### Styling the `AddCar` component
 
 To enhance the user experience, it's essential to style the `AddCar` component to make it visually appealing and align with the overall design of your application. You can use CSS or a CSS framework of your choice to style the component.
 
@@ -881,7 +1154,7 @@ In this example, we use Bootstrap CSS classes to structure the form and input fi
 
 The `handleSubmit` function is called when the form is submitted. It prevents the default form submission behavior, calls the `addCar` function passed via props, and resets the form values using the `setBrand`, `setModel`, `setImage`,
 
-**Styling the AddCar component (continued)**
+### Styling the AddCar component (continued)
 
 ```Solidity
 // ...previous code
@@ -959,7 +1232,7 @@ Now, when you run your application, you should see the "Add a Car" form rendered
 
 That's it! You've successfully implemented the `AddCar` component and integrated it into your car company application. Users can now add cars to the inventory through the user interface.
 
-**Testing the `AddCar` component**
+### Testing the `AddCar` component
 
 It's important to test the functionality of the `AddCar` component to ensure that cars can be successfully added to the inventory. You can perform manual testing by running your application and using the form to add cars. However, in a production environment, it's recommended to write automated tests to validate the behavior of your components.
 
@@ -1005,7 +1278,7 @@ Finally, we use the expect function to check if the `addCarMock` function was ca
 
 You can write more tests to cover different scenarios, such as submitting an empty form or testing the form reset behavior. Testing helps ensure the correctness and reliability of your code, especially as your application grows in complexity.
 
-**Wrapping up**
+### Wrapping up
 
 Congratulations! You have successfully implemented the `AddCar` component in your car company application. Users can now add cars to the inventory through the user interface, and the data will be sent to the smart contract.
 
@@ -1018,9 +1291,9 @@ Throughout this tutorial, you learned how to:
 -   Integrate the `AddCar` component into the main application.
 -   Write a basic test to verify the functionality of the `AddCar`
 
-### Cars.js
+## Cars.js
 
-**Import React and useState**
+### Import React and useState
 
 The code starts by importing the necessary dependencies: React and useState from the "react" package. React is the library we use to create components, and useState is a React Hook that allows us to manage state within functional components.
 
@@ -1030,7 +1303,7 @@ import { useState } from 'react';
 
 ```
 
-**Create the Cars Component**
+### Create the Cars Component
 
 The `Cars` component is a functional component that displays a list of cars along with their details and provides functionality to add reviews, like/dislike cars, and display car information.
 
@@ -1121,7 +1394,7 @@ export const Cars = (props) => {
 
 ```
 
-**Export the Cars component**
+### Export the Cars component
 
 The `Cars` component is exported so that it can be imported and used in other parts of the application.
 
@@ -1130,7 +1403,7 @@ export default Cars;
 
 ```
 
-**Initialize State**
+### Initialize State
 
 Inside the `Cars` component, we initialize the state using the `useState` hook. We create a state variable called ``review` and a corresponding setter function `setReview`. The `review` state will be used to store the input value of the review field.
 
@@ -1139,7 +1412,7 @@ const [review, setReview] = useState('');
 
 ```
 
-**Render Car Cards**
+### Render Car Cards
 
 The `Cars` component maps over the `props.Cars` array, which contains the car data passed from the parent component. For each car, it renders a card element with the car's details.
 
@@ -1161,7 +1434,7 @@ The `Cars` component maps over the `props.Cars` array, which contains the car da
 
 ```
 
-**Display Car Information**
+### Display Car Information
 
 Inside each card, we display the car's brand, model, availability, and price.
 
@@ -1173,7 +1446,7 @@ Inside each card, we display the car's brand, model, availability, and price.
 
 ```
 
-**Like/Dislike Buttons**
+### Like/Dislike Buttons
 
 If the user wallet address is not the same as the car's owner, we render the like and dislike buttons. These buttons trigger the `props.likeCar` and `props.dislikeCar` functions when clicked.
 
@@ -1191,7 +1464,7 @@ If the user wallet address is not the same as the car's owner, we render the lik
 
 ```
 
-**Display Likes and Dislikes**
+### Display Likes and Dislikes
 
 If the user wallet address is not the same as the car's owner, we display the number of likes and dislikes for the car.
 
@@ -1204,7 +1477,7 @@ If the user wallet address is not the same as the car's owner, we display the nu
 
 ```
 
-**Add Review Form**
+### Add Review Form
 
 If the user wallet address is not the same as the car's owner, we render the add review form. This form includes an input field to enter the review and a button to submit it. The value of the input field is controlled by the `review` state.
 
@@ -1232,7 +1505,7 @@ If the user wallet address is not the same as the car's owner, we render the add
 
 ```
 
-**Display Car Reviews**
+### Display Car Reviews
 
 the `car.reviews` array and display each review as a paragraph element within the card.
 
@@ -1248,7 +1521,7 @@ the `car.reviews` array and display each review as a paragraph element within th
 
 This code snippet maps over the `car.reviews` array and renders a paragraph element for each review. The `c` parameter represents an individual review object, and we extract the `reviewerMessage` property to display the review message.
 
-**Export the Cars Component**
+### Export the Cars Component
 
 At the end of the code, the `Cars` component is exported using `export default` so that it can be imported and used in other parts of the application.
 
@@ -1261,7 +1534,7 @@ This allows other components to import the `Cars` component and use it in their 
 
 That concludes the explanation of the `Cars` component. It displays a list of cars, along with their details and reviews. Users can like or dislike cars, add reviews, and see the number of likes and dislikes for each car.
 
-**Import the Cars Component in App.js**
+### Import the Cars Component in App.js
 
 To use the `Cars` component in the main `App.js` file, you need to import it. Add the following import statement at the top of the `App.js` file:
 
@@ -1272,7 +1545,7 @@ import { Cars } from './components/Cars';
 
 This imports the `Cars` component from the `./components/Cars` file.
 
-**Add the Cars Component to the Rendered JSX**
+### Add the Cars Component to the Rendered JSX
 
 Inside the `return` statement of the `App` component, add the `Cars` component as a child component to render it on the page. Update the JSX code as follows:
 
@@ -1303,7 +1576,7 @@ Here, we pass various props to the `Cars` component:
 -   `likeCar`: The function to like a car.
 -   `dislikeCar`: The function to dislike a car.
 
-**Implement the AddCar Component**
+### Implement the AddCar Component
 
 The `AddCar` component is responsible for rendering a form to add a new car to the car marketplace. It includes input fields for the car brand, model, image URL, price, and number of cars available. When the user clicks the "Add Car" button, the `addCar` function is called with the form values.
 
@@ -1384,7 +1657,7 @@ Add Car
 
 In this code, we define multiple state variables using the `useState` hook to manage the input values for brand, model, image, price, and carsAvailable. The `handleAddCar` function is called when the "Add Car" button is clicked. It invokes the `addCar` function from the props and passes the form values as arguments. After adding the car, the input fields are reset to their initial values using the `setBrand`, `setModel`, `setImage`, `setPrice`, and `setCarsAvailable` functions.
 
-**Implement the Cars Component**
+### Implement the Cars Component
 
 The `Cars` component is responsible for rendering the list of cars on the marketplace. It receives the car data as props and renders each car as a card. Users can interact with the cars by liking, disliking, adding reviews, and buying them.
 
@@ -1498,7 +1771,7 @@ The `handleLikeCar`, `handleDislikeCar`, `handleAddReview`, and `handleBuyCar` f
 
 Finally, the car's reviews are displayed by iterating over the reviews array and rendering each review message as a paragraph.
 
-**Update App.js to Use the Cars Component**
+### Update App.js to Use the Cars Component
 
 In the `App` component, remove the existing code for rendering the cars and replace it with the `Cars` component. Pass the required props as shown below:
 
@@ -1520,7 +1793,7 @@ That's it! You have now implemented the `AddCar` and `Cars` components in your R
 
 Feel free to customize the styling and add additional functionality to enhance the user experience.
 
-**Add Styling to the Components**
+### Add Styling to the Components
 
 To enhance the visual appeal of the `AddCar` and `Cars` components, we can add some CSS styles. Create a new CSS file called `styles.css` in the `src` folder and add the following styles:
 
@@ -1624,7 +1897,7 @@ import './styles.css';
 
 Now, the styles defined in the `styles.css` file will be applied to the components.
 
-**Test the Application**
+### Test the Application
 
 You can now test the application by running it in the development server. In the terminal, make sure you are in the project's root directory and run the following command:
 
@@ -1647,7 +1920,7 @@ In this tutorial, we'll be explaining the code for a React Navigation Bar compon
 
 Let's break down the code step by step:
 
-**Importing Dependencies**
+### Importing Dependencies
 
 ```Solidity
 import React from 'react';
@@ -1656,7 +1929,7 @@ import React from 'react';
 
 In this line, we import the `React` library, which is necessary for writing React components.
 
-**Creating the NavigationBar Component**
+### Creating the NavigationBar Component
 
 ```Solidity
 export const NavigationBar = (props) => {
@@ -1669,7 +1942,7 @@ export const NavigationBar = (props) => {
 
 Here, we define the `NavigationBar` component as a functional component. It receives `props` as its parameter, which allows us to pass data into the component from its parent component.
 
-**Navigation Bar JSX**
+### Navigation Bar JSX
 
 ```Solidity
 <nav className="navbar"> 
@@ -1691,7 +1964,7 @@ Inside the `NavigationBar` component, we have the JSX code that represents the n
 -   `<span>`: This creates a span element to wrap the balance display.
 -   `<li><a className="balance"><span>{props.cUSDBalance}</span>cUSD</a></li>`: This represents a list item (`li`) within the secondary navigation. It contains an anchor (`a`) element with a CSS class name of "balance". The `cUSDBalance` prop value is interpolated inside a span element, which will display the balance. The text "cUSD" represents the currency unit.
 
-**Exporting the NavigationBar Component**
+### Exporting the NavigationBar Component
 
 ```Solidity
 export const NavigationBar = (props) => {
@@ -1706,7 +1979,7 @@ That's it! You have successfully explained the given code, which is a React Navi
 
 Remember to import the necessary dependencies and pass the required props to the `NavigationBar` component when using it in your application.
 
-**Invoking the NavigationBar Component**
+### Invoking the NavigationBar Component
 
 To use the `NavigationBar` component in your application, you need to import it and invoke it within another component. Here's an example of how you can use it:
 
