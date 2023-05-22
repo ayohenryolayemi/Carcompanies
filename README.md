@@ -1,29 +1,86 @@
 ---
-title: create a Car Company Smart Contract on the Celo Blockchain
-description: This tutorial will teach you how to create a car company on celo blockchain
-authors:
-  - name: ayohenryolayemi
+Title: Create a Car Company Smart Contract on the Celo Blockchain.
+Description: This tutorial will teach you how to create a Car Company on Celo Blockchain.
+Authors:
+  - Name: Ayohenryolayemi
 ---
 
-## Introduction
+# Table of contents:
 
-In this tutorial, we will walk you through a smart contract called `Carcompanies` that allows users to interact with a decentralized car marketplace. The smart contract enables users to add cars for sale, buy cars, leave reviews, and interact with the marketplace.
+- [Introduction](#introduction)
+- [Pre-requisites](#pre-requisites)
+- [Requirements](#requirements)
+- [Smart Contract](#smart-contract)
+  - [How The Contract Works?](#how-the-contract-works?)
+  - [Contract Overview](#contract-overview)
+  - [Adding a Car](#adding-a-car)
+  - [Retrieving Car Information](retrieving-car-information)
+  - [Interacting with Cars](#interacting-with-cars)
+  - [Buying a Car](#buying-a-car)
+  - [Additional Helper Functions](#additional-helper-functions)
+- [Frontend](#frontend)
+  - [Importing Dependencies](#importing-dependencies)
+  - [Initializing Variables and Constants](#initializing-variables-and-constants)
+  - [Connect to Wallet Function](#connect-to-wallet-function)
+  - [Get User Balance and Car Data](#get-user-balance-and-car-data)
+  - [Add Car](#add-car)
+  - [Like, Dislike, and Add Review](#like-dislike-and-add-review)
+  - [Addcar.js](#addcarjs)
+  - [Wrapping up](#wrapping-up)
+- [Cars.js](#carsjs)
+  - [Import React and useState](#import-react-and-usestate)
+  - [Create the Cars Component](#create-the-cars-component)
+  - [Export the Cars component](#export-the-cars-component)
+  - [Initialize State](#initialize-state)
+  - [Render Car Cards](#render-car-cards)
+  - [Display Car Information](#display-car-information)
+  - [Like/Dislike Buttons](#likedislike-buttons)
+  - [Display Likes and Dislikes](#display-likes-and-dislikes)
+  - [Add Review Form](#add-review-form)
+  - [Display Car Reviews](#display-car-reviews)
+  - [Export the Cars Component](#export-the-cars-component)
+  - [Import the Cars Component in App.js](#import-the-cars-component-in-appjs)
+  - [Add the Cars Component to the Rendered JSX](#add-the-cars-component-to-the-rendered-jsx)
+  - [Implement the AddCar Component](#implement-the-addcar-component)
+  - [Implement the Cars Component](#implement-the-cars-component)
+  - [Update App.js to Use the Cars Component](#update-appjs-to-use-the-cars-component)
+  - [Add Styling to the Components](add-styling-to-the-components)
+  - [Test the Application](#test-the-application)
+- [NavigationBar.js](#navigationbarjs)
+  - [Importing Dependencies](#importing-dependencies)
+  - [Creating the NavigationBar Component](#creating-the-navigationbar-component)
+  - [Navigation Bar JSX](#navigation-bar-jsx)
+  - [Exporting the NavigationBar Component](#exporting-the-navigationbar-component)
+  - [Invoking the NavigationBar Component](#invoking-the-navigationbar-component)
+- [Deployment](#deployment)
+- [Conclusion](#conclusion)
+- [Next Steps](#next-steps)
 
-## Prerequisites
+## Introduction:
 
-To follow along with this tutorial, you should have a basic understanding of Ethereum, Solidity programming language, and the concepts of smart contracts.
+In this tutorial, we will walk you through a Smart Contract called `Car companies` that allows users to interact with a decentralized car marketplace. The Smart Contract enables users to add cars for sale, buy cars, leave reviews and interact with the marketplace.
 
-## SmartContract
+## Pre-requisites:
 
-Let's begin writing our smart contract in Remix IDE
+Basic Understanding of the following is required- 
+1. [Ethereum](https://ethereum.org/en/what-is-ethereum/)
+2. [Solidity](https://docs.soliditylang.org/en/v0.8.20/) programming language and,
+3. Concepts of [Smart Contracts](https://www.ibm.com/topics/smart-contracts)
 
-This is the complete code.
+## Requirements:
+
+1. [Remix IDE](https://remix.ethereum.org/#lang=en&optimize=false&runs=200&evmVersion=null)
+
+## Smart Contract:
+
+Let's begin writing our Smart Contract in [Remix IDE](https://remix.ethereum.org/#lang=en&optimize=false&runs=200&evmVersion=null)
+
+This is the complete code:
 
 ```solidity
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.7.0 <0.9.0;
-
 
 interface IERC20Token {
   function transfer(address, uint256) external returns (bool);
@@ -33,25 +90,21 @@ interface IERC20Token {
   function balanceOf(address) external view returns (uint256);
   function allowance(address, address) external view returns (uint256);
 
-
   event Transfer(address indexed from, address indexed to, uint256 value);
   event Approval(address indexed owner, address indexed spender, uint256 value);
 }
-
 
 contract Carcompanies {
 
     uint internal carLength = 0;
     address internal cUsdTokenAddress = 0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1;
 
-
     // declaring the struct for the review
-     struct Review {
+    struct Review {
         uint256 postId;
         address reviewerAddress;
         string reviewerMessage;
     }
-
 
     struct Car {
         address payable owner;
@@ -65,19 +118,18 @@ contract Carcompanies {
         uint numberOfreview;
     }
 
-    mapping (uint256=> Car) internal cars;
-    mapping (uint => Review[]) internal reviewsMap;// mapping reviews
+    mapping (uint256 => Car) internal cars;
+    mapping (uint => Review[]) internal reviewsMap; // mapping reviews
 
-
+    // Add a new car
     function addCar(
         string memory _brand,
         string memory _model,
         string memory _image,
         uint _price,
         uint _carsAvailable
-    )public{
+    ) public {
         uint _numberOfreview = 0;
-
 
         cars[carLength] = Car(
             payable(msg.sender),
@@ -93,7 +145,8 @@ contract Carcompanies {
         carLength++;
     }
 
-    function getCar(uint _index)public view returns(
+    // Get car details by index
+    function getCar(uint _index) public view returns(
         address payable,
         string memory,
         string memory,
@@ -104,7 +157,9 @@ contract Carcompanies {
         uint,
         uint,
         Review[] memory
-    ){
+    ) {
+        require(_index < carLength, "Invalid car index");
+
         Car memory c = cars[_index];
         Review[] memory reviews = reviewsMap[_index];
         return (
@@ -121,71 +176,78 @@ contract Carcompanies {
         );
     }
 
-    // like the car
-    function likeCar(uint _index)public{
-        require(cars[_index].owner != msg.sender);
+    // Like a car
+    function likeCar(uint _index) public {
+        require(_index < carLength, "Invalid car index");
+        require(cars[_index].owner != msg.sender, "You cannot like your own car");
+
         cars[_index].likes++;
     }
 
-    // leave a dislike for the car
-    function dislikeCar(uint _index)public{
-         require(cars[_index].owner != msg.sender);
+    // Dislike a car
+    function dislikeCar(uint _index) public {
+        require(_index < carLength, "Invalid car index");
+        require(cars[_index].owner != msg.sender, "You cannot dislike your own car");
+
         cars[_index].dislikes++;
     }
 
-       // add a revie to a book
-   function addReview(uint _index, string memory _reviews) public{
-     require(cars[_index].owner != msg.sender);
-    reviewsMap[_index].push(Review(_index, address(msg.sender), _reviews));
-    cars[_index].numberOfreview++;
-  }
+    // Add a review to a car
+    function addReview(uint _index, string memory _reviews) public {
+        require(_index < carLength, "Invalid car index");
+        require(cars[_index].owner != msg.sender, "You cannot review your own car");
 
+        reviewsMap[_index].push(Review(_index, msg.sender, _reviews));
+        cars[_index].numberOfreview++;
+    }
 
-function buyCar(uint _index) public payable  {
-        require(cars[_index].carsAvailable > 0, "sold out");
-        require(
-          IERC20Token(cUsdTokenAddress).transferFrom(
+    // Buy a car
+    function buyCar(uint _index) public payable {
+        require(_index < carLength, "Invalid car index");
+        require(cars[_index].carsAvailable > 0, "Car sold out");
+
+        bool success = IERC20Token(cUsdTokenAddress).transferFrom(
             msg.sender,
             cars[_index].owner,
             cars[_index].price
-          ),
-          "Can not perform transactions."
         );
+        require(success, "Transaction failed");
+
         cars[_index].carsAvailable--;
     }
 
-    //acquiring length of cars
-    function getCarLength() public view returns (uint){
-        return (carLength);
+    // Get the length of cars
+    function getCarLength() public view returns (uint) {
+        return carLength;
     }
 
-    // acquiring length of reviews 
+    // Get the length of reviews for a car
     function getReviewsLength(uint _index) public view returns (uint) {
+        require(_index < carLength, "Invalid car index");
         return reviewsMap[_index].length;
     }
-} 
-
+}
 ```
 
-## How The Contract Works
+## How The Contract Works?
 
 Let's explain how the contract works!
 
-**Contract Overview**
+**Contract Overview:**
 
-Let's start by understanding the purpose and structure of the smart contract.
+Let's start by understanding the purpose and structure of the Smart Contract.
 
-The `Carcompanies` contract is designed to facilitate a decentralized car marketplace. It allows users to perform the following actions:
+The "Car companies" contract is designed to facilitate a decentralized Car Marketplace. It allows users to perform the following actions:
 
-- Add a car for sale.
-- Retrieve information about a car.
--   Like or dislike a car.
--   Add reviews for a car.
--   Buy a car.
+1. Add a car for sale.
+2. Retrieve information about a car.
+3. Like or dislike a car.
+4. Add reviews for a car.
+5. Buy a car.
 
-The contract uses a custom ERC20 token, represented by the `IERC20Token` interface, for conducting transactions within the marketplace.
+The contract uses a custom [ERC20 token](https://ethereum.org/en/developers/docs/standards/tokens/erc-20/), represented by the `IERC20Token` interface for conducting transactions within the marketplace.
 
-**Contract Structure and variables**
+**Contract Structure and variables:**
 
 Now, let's dive into the structure of the smart contract and its variables.
 
@@ -219,13 +281,13 @@ contract Carcompanies {
 
 ```
 
-The contract starts with a `carLength` variable to keep track of the number of cars in the marketplace. The `cUsdTokenAddress` variable represents the address of a custom ERC20 token used for transactions.
+The contract starts with a `carLength` variable to keep track of the number of cars in the marketplace. The `cUsdTokenAddress` variable represents the address of a custom [ERC20 token](https://ethereum.org/en/developers/docs/standards/tokens/erc-20/) used for transactions.
 
-Next, the contract defines two structs: `Review` and `Car`. The Review struct represents a user review for a car, containing fields such as the post ID, reviewer's address, and reviewer's message. The `Car` struct represents a car for sale, with fields for the owner, brand, model, image, likes, dislikes, price, available quantity, and the number of reviews for the car.
+Next, the contract defines two structs: `Review` and `Car`. The Review struct represents a user review for a car, containing fields such as the post ID, reviewer's address, and reviewer's message. The `Car` struct represents a car for sale, with fields for the owner, brand, model, image, likes, dislikes, price, available quantity and the number of reviews for the car.
 
 The contract also includes two mappings: `cars` and `reviewsMap`. The `cars` mapping maps a car index to its corresponding Car struct, allowing efficient retrieval of car information. The `reviewsMap` mapping maps a car index to an array of `Review` structs, enabling multiple reviews for each car.
 
-**Adding a Car**
+**Adding a Car:**
 
 Let's continue by implementing the functionality to add a car for sale.
 
@@ -242,9 +304,9 @@ function addCar(
 
 ```
 
-The `addCar` function allows a user to add a car to the marketplace. It takes parameters such as the brand, model, image URL, price, and available quantity of the car. Inside the function, a new `Car` struct is created with the provided details, and the car is added to the cars mapping. The `carLength` variable is incremented to keep track of the total number of cars.
+The `addCar` function allows a user to add a car to the marketplace. It takes parameters such as the brand, model, image URL, price and available quantity of the car. Inside the function, a new `Car` struct is created with the provided details and the car is added to the cars mapping. The `carLength` variable is incremented to keep track of the total number of cars.
 
-**Retrieving Car Information**
+**Retrieving Car Information:**
 
 Let's implement the functionality to retrieve information about a car.
 
@@ -266,11 +328,11 @@ function getCar(uint _index) public view returns (
 
 ```
 
-The `getCar` function takes the index of a car as a parameter and returns various details about the car, including the owner's address, brand, model, image URL, likes, dislikes, price, available quantity, the number of reviews, and an array of reviews. It retrieves the `Car` struct associated with the provided index from the `cars` mapping and returns the corresponding information.
+The `getCar` function takes the index of a car as a parameter and returns various details about the car, including the owner's address, brand, model, image URL, likes, dislikes, price, available quantity, the number of reviews and an array of reviews. It retrieves the `Car` struct associated with the provided index from the `cars` mapping and returns the corresponding information.
 
-**Interacting with Cars**
+**Interacting with Cars:**
 
-Let's implement functions to interact with cars, such as liking, disliking, and adding reviews.
+Let's implement functions to interact with cars such as liking, disliking and adding reviews.
 
 ```solidity
 function likeCar(uint _index) public {
@@ -293,9 +355,9 @@ The `dislikeCar` function enables a user to `dislike` a car. It increments the d
 
 The `addReview` function allows a user to add a review for a car. It takes the index of the car and the review message as parameters. A new `Review` struct is created with the provided details and added to the `reviewsMap` mapping, associated with the corresponding car index. The `numberOfreview` counter for the car is incremented to keep track of the total number of reviews.
 
-**Buying a Car**
+**Buying a Car:**
 
-Let's implement the functionality to buy a car from the marketplace.
+Let's implement the functionality to `buy car` from the marketplace.
 
 ```solidity
 function buyCar(uint _index) public payable {
@@ -306,7 +368,7 @@ function buyCar(uint _index) public payable {
 
 The `buyCar` function allows a user to purchase a car from the marketplace. It takes the index of the car as a parameter. The function checks if the car is available for purchase by verifying the `carsAvailable` field in the corresponding `Car` struct. If the car is available, it transfers the specified `price` of the car from the buyer's address to the car's owner using the custom ERC20 token. The `carsAvailable` counter is decremented to reflect the reduced availability of the car.
 
-**Additional Helper Functions**
+**Additional Helper Functions:**
 
 Let's implement two additional helper functions to retrieve the length of the car array and the number of reviews for a specific car.
 
@@ -325,9 +387,9 @@ The `getCarLength` function returns the total number of cars in the marketplace 
 
 The `getReviewsLength` function takes the index of a car as a parameter and returns the total number of reviews for that car by retrieving the length of the corresponding array in the `reviewsMap` mapping.
 
-### Frontend
+### Frontend:
 
-**Importing Dependecies**
+**Importing Dependecies:**
 
 The code begins by importing necessary dependencies and components for the application. It imports the `NavigationBar`, `AddCar`, `useState`, `useEffect`, and other required libraries.
 
@@ -344,13 +406,13 @@ import IERC from "./contracts/IERC.abi.json";
 import { Cars } from './components/Cars';
 
 ```
-Here, the code imports CSS styles from App.css, various components such as `NavigationBar`, `AddCar`, and `Cars` from their respective files, and several libraries including React hooks like `useState`, `useEffect`, and `useCallback`. It also imports Web3, ContractKit, and other JSON files containing the ABIs (Application Binary Interface) for the smart contracts.
+Here, the code imports CSS styles from "App.css", various components such as `NavigationBar`, `AddCar`, and `Cars` from their respective files and several libraries including React hooks like `useState`, `useEffect` and `useCallback`. It also imports `Web3`, `ContractKit` and other "JSON" files containing the ABIs (Application Binary Interface) for the Smart Contracts.
 
-**Initializing Variables and Constants**
+**Initializing Variables and Constants:**
 
-Next, the code initializes variables and constants required for the application. It sets the contract address, cUSD contract address, and ERC20 decimal value. These values are used to interact with the smart contract and handle token transactions.
+Next, the code initializes variables and constants required for the application. It sets the contract address, cUSD contract address and ERC20 decimal value. These values are used to interact with the smart contract and handle token transactions.
 
-**Connect to Wallet Function**
+**Connect to Wallet Function:**
 
 The next step is to define a function that connects the application to the user's wallet:
 
@@ -380,7 +442,7 @@ const connectToWallet = async () => {
 ```
 This function uses the `window.celo` object to enable the user's wallet. It creates a `web3` instance using the Celo provider and initializes a ContractKit instance `using newKitFromWeb3`.
 
-**Get User Balance and Car Data**
+**Get User Balance and Car Data:**
 
 ```solidity
 const getBalance = useCallback(async () => {
@@ -427,11 +489,11 @@ const getCar = useCallback(async () => {
 ```
 The `getBalance` function retrieves the user's cUSD token balance. It uses the ContractKit instance and the user's address to get the total balance. The balance is converted to a readable format with the specified decimal places and stored in the `cUSDBalance` state variable.
 
-**Get Cars**
+**Get Cars:**
 
 The `getCar` function retrieves information about the cars from the smart contract. It uses the `getCarLength` and `getCar` functions of the contract to get the total number of cars and retrieve the details of each car. The car details are mapped to an array of car objects and stored in the `car` state variable.
 
-**Add Car**
+**Add Car:**
 
 ```solidity
 const addCar = async (_brand, _model, _image, price, _carsAvailable) => {
@@ -450,7 +512,7 @@ const addCar = async (_brand, _model, _image, price, _carsAvailable) => {
 ```
 The `addCar` function allows users to add a new car to the marketplace. It takes the brand, model, image URL, price, and available quantity as parameters. The function converts the price to the required format and calls the `addCar` function of the smart contract, passing the provided details. After adding the car, it calls the `getCar` function to update the car list.
 
-**Like, Dislike, and Add Review**
+**Like, Dislike, and Add Review:**
 
 ```solidity
 const likeCar = async (index) => {
@@ -507,9 +569,9 @@ The `dislikeCar` function is similar to `likeCar` but calls the `dislikeCar` met
 
 The `addReview` function allows users to add a review to a specific car. It takes the car index and the review as parameters and sends the transaction to the smart contract. After the transaction is successful, it updates the car data by calling `getCar`.
 
-The `buyCar` function enables users to purchase a car from the marketplace. It first creates an instance of the cUSD contract using the ContractKit provider. It then approves the smart contract to spend the required amount of cUSD tokens by calling `approve` on the cUSD contract. After approval, it calls the `BuyCar` method of the smart contract, passing the car index and the user's address. Finally, it updates the car data and the user's balance by calling `getCar` and `getBalance`, respectively, and displays a success message.
+The `buyCar` function enables users to purchase a car from the marketplace. It first creates an instance of the cUSD contract using the ContractKit provider. It then approves the smart contract to spend the required amount of cUSD tokens by calling `approve` on the cUSD contract. After approval, it calls the `BuyCar` method of the Smart Contract, passing the car index and the user's address. Finally, it updates the car data and the user's balance by calling `getCar` and `getBalance`, respectively and displays a success message.
 
-**Lifecycle Hooks and Render**
+**Lifecycle Hooks and Render:**
 The code utilizes several lifecycle hooks to perform actions at specific times during the component's lifecycle.
 
 ```javascript
@@ -560,15 +622,15 @@ buyCar={buyCar}
 
 ```
 
-Finally, in the return statement, the component renders the different components of the application. It renders the `NavigationBar` component, passing the `cUSDBalance` as a prop. It also renders the `Cars` component, passing various props such as `userWallet`, `Cars` (the array of cars), and the functions `addReview`, `buyCar`, `likeCar`, and `dislikeCar`. Lastly, it renders the AddCar component, passing the addCar function as a prop.
+Finally, in the `return` statement, the component renders the different components of the application. It renders the `NavigationBar` component, passing the `cUSDBalance` as a prop. It also renders the `Cars` component, passing various props such as `userWallet`, `Cars` (the array of cars), and the functions `addReview`, `buyCar`, `likeCar`, and `dislikeCar`. Lastly, it renders the AddCar component, passing the addCar function as a prop.
 
-That's the overall explanation of the code. It's a decentralized application (DApp) that allows users to add cars to a marketplace, view car details, like/dislike cars, add reviews, and buy cars using cUSD tokens on the Celo blockchain.
+That's the overall explanation of the code. It's a decentralized application (DApp) that allows users to add cars to a marketplace, view car details, like/dislike cars, add reviews and buy cars using cUSD tokens on the Celo blockchain.
 
-The smart contract defines the functionality for adding cars, managing reviews, and executing car purchases. The frontend application interacts with the smart contract using the ContractKit library and allows users to connect their Celo wallets, view their cUSD balance, add cars, interact with car listings, and make purchases.
+The Smart Contract defines the functionality for adding cars, managing reviews, and executing car purchases. The frontend application interacts with the Smart Contract using the ContractKit library and allows users to connect their Celo wallets, view their cUSD balance, add cars, interact with car listings and make purchases.
 
-### Addcar.js
+### Addcar.js:
 
-**Import the required dependencies**
+**Import the required dependencies:**
 
 ```Solidity
 import React from 'react';
@@ -577,7 +639,7 @@ import { useState } from "react";
 ```
 We import the `React` module from the `react` package and the `useState` hook from the `react` package as well.
 
-**Define the `AddCar` funtional component**
+**Define the `AddCar` funtional component:**
 
 ```Solidity
 export const AddCar = (props) => {
@@ -585,7 +647,7 @@ export const AddCar = (props) => {
 ```
 We define the `AddCar` component using the ES6 arrow function syntax. It takes a single parameter `props`, which allows us to access properties passed to the component.
 
-**Initialize state variables using the `useState` hook**
+**Initialize state variables using the `useState` hook:**
 
 ```Solidity
 const [brand, setBrand] = useState('');
@@ -597,7 +659,7 @@ const [carsAvailable, setCarsAvailable] = useState('');
 ```
 We use the `useState` hook to initialize multiple state variables. Each state variable is paired with a corresponding setter function that allows us to update the state. Here, we initialize `brand`, `model`, `image`, `price`, and `carsAvailable` with empty strings as their initial values.
 
-**Define the JSX markup for the form**
+**Define the JSX markup for the form:**
 
 ```Solidity
 return (
@@ -654,7 +716,7 @@ return (
 ```
 In the `return` statement, we define the JSX markup for the form. It consists of several input fields for the car brand, model, image URL, price, and number of cars available. Each input field is associated with a corresponding state variable and uses the `onChange` event to update the state when the user enters data. The "Add Car" button triggers the `props.addCar` function when clicked, passing the entered values as arguments.
 
-**Export the `AddCar` component**
+**Export the `AddCar` component:**
 
 ```Solidity
 export default AddCar;
@@ -664,7 +726,7 @@ We export the `AddCar` component as the default export, allowing it to be import
 
 That's it! The `AddCar` component provides a form for adding car details and uses the `useState` hook to manage the form inputs' state. When the "Add Car" button is clicked, it triggers the `props.addCar` function passed to the component
 
-**Pass the `addCar` function as a prop**
+**Pass the `addCar` function as a prop:**
 
 ```Solidity
 <button
@@ -676,11 +738,11 @@ That's it! The `AddCar` component provides a form for adding car details and use
 </button>
 
 ```
-In the button element, we set the `onClick` event to trigger the props.addCar function when the button is clicked. We pass the values of `brand`, `model`, `image`, `price`, and `carsAvailable` as arguments to the `addCar` function.
+In the `button` element, we set the `onClick` event to trigger the props.addCar function when the button is clicked. We pass the values of `brand`, `model`, `image`, `price`, and `carsAvailable` as arguments to the `addCar` function.
 
 By passing the `addCar` function as a prop to the `AddCar` component, we allow the parent component to define the logic for adding a car and handle the data accordingly.
 
-**Return the JSX markup**
+**Return the JSX markup:**
 
 ```Solidity
 return (
@@ -696,7 +758,7 @@ return (
 
 We return the JSX markup for the  `AddCar` component, which includes the form elements for entering car details.
 
-**Export the `AddCar` component**
+**Export the `AddCar` component:**
 
 ```Solidity
 export default AddCar;
@@ -709,7 +771,7 @@ That's it! The `AddCar` component provides a form with input fields for adding c
 
 You can use this `AddCar` component within your application to provide a user-friendly interface for adding car data.
 
-**Utilizing the `AddCar` component in the main application**
+**Utilizing the `AddCar` component in the main application:**
 
 ```Solidity
 import React from 'react';
@@ -745,7 +807,7 @@ The `addCar` function is defined within the `App` component and serves as the ha
 
 By passing the `addCar` function as a prop to the `AddCar` component, we enable communication between the `AddCar` component and the parent `App` component. The `AddCar` component can trigger the `addCar` function when the user submits the form, passing the entered car details as arguments.
 
-**Completing the `addCar` function logic**
+**Completing the `addCar` function logic:**
 
 Within the `App` component, you need to implement the logic for the `addCar` function to handle the addition of a new car. This logic will depend on your specific requirements and the technologies you're using. Here's an example implementation:
 
@@ -771,7 +833,7 @@ const addCar = (brand, model, image, price, carsAvailable) => {
 
 In this example implementation, we create a new car object using the entered values. Then, we update the car list by adding the new car to the existing list. The updated car list is stored in the `cars` state variable using the `setCars` function (assuming you have defined the cars state and the `setCars` function).
 
-You can modify this implementation to suit your specific needs. For example, if you're interacting with a smart contract, you might need to make a contract call to add the car or update the blockchain data accordingly.
+You can modify this implementation to suit your specific needs. For example, if you're interacting with a Smart Contract, you might need to make a contract call to add the car or update the blockchain data accordingly.
 
 By completing the logic for the `addCar` function, you enable the ability to add a new car using the `AddCar` component and handle the data as required by your application.
 
@@ -925,7 +987,7 @@ The form itself has an `onSubmit` event listener that calls the `handleSubmit` f
 
 The "Add Car" button has the `btn` and `btn-primary` classes from Bootstrap, which give it a styled appearance.
 
-**Incorporating the `AddCar` component into the main application**
+**Incorporating the `AddCar` component into the main application:**
 
 To complete the integration of the `AddCar` component into the main application, we need to import and render it within the `App` component.
 
@@ -959,7 +1021,7 @@ Now, when you run your application, you should see the "Add a Car" form rendered
 
 That's it! You've successfully implemented the `AddCar` component and integrated it into your car company application. Users can now add cars to the inventory through the user interface.
 
-**Testing the `AddCar` component**
+## **Testing the `AddCar` component:**
 
 It's important to test the functionality of the `AddCar` component to ensure that cars can be successfully added to the inventory. You can perform manual testing by running your application and using the form to add cars. However, in a production environment, it's recommended to write automated tests to validate the behavior of your components.
 
@@ -1005,24 +1067,24 @@ Finally, we use the expect function to check if the `addCarMock` function was ca
 
 You can write more tests to cover different scenarios, such as submitting an empty form or testing the form reset behavior. Testing helps ensure the correctness and reliability of your code, especially as your application grows in complexity.
 
-**Wrapping up**
+## **Wrapping up:**
 
 Congratulations! You have successfully implemented the `AddCar` component in your car company application. Users can now add cars to the inventory through the user interface, and the data will be sent to the smart contract.
 
 Throughout this tutorial, you learned how to:
 
--   Create a form component in React to capture car details.
--   Handle form submission and trigger an action to add a car.
--   Utilize state hooks to manage form input values.
--   Style the form using Bootstrap classes for a visually appealing layout.
--   Integrate the `AddCar` component into the main application.
--   Write a basic test to verify the functionality of the `AddCar`
+1.   Create a form component in React to capture car details.
+2.   Handle form submission and trigger an action to add a car.
+3.   Utilize state hooks to manage form input values.
+4.   Style the form using Bootstrap classes for a visually appealing layout.
+5.   Integrate the `AddCar` component into the main application.
+6.   Write a basic test to verify the functionality of the `AddCar`
 
-### Cars.js
+### Cars.js:
 
-**Import React and useState**
+**Import React and useState:**
 
-The code starts by importing the necessary dependencies: React and useState from the "react" package. React is the library we use to create components, and useState is a React Hook that allows us to manage state within functional components.
+The code starts by importing the necessary dependencies: React and useState from the "react" package. React is the library we use to create components and useState is a React Hook that allows us to manage state within functional components.
 
 ```Solidity
 import React from 'react';
@@ -1032,7 +1094,7 @@ import { useState } from 'react';
 
 **Create the Cars Component**
 
-The `Cars` component is a functional component that displays a list of cars along with their details and provides functionality to add reviews, like/dislike cars, and display car information.
+The `Cars` component is a functional component that displays a list of cars along with their details and provides functionality to add reviews, like/dislike cars and display car information.
 
 ```Solidity
 export const Cars = (props) => {
@@ -1121,7 +1183,7 @@ export const Cars = (props) => {
 
 ```
 
-**Export the Cars component**
+**Export the Cars component:**
 
 The `Cars` component is exported so that it can be imported and used in other parts of the application.
 
@@ -1130,7 +1192,7 @@ export default Cars;
 
 ```
 
-**Initialize State**
+**Initialize State:**
 
 Inside the `Cars` component, we initialize the state using the `useState` hook. We create a state variable called ``review` and a corresponding setter function `setReview`. The `review` state will be used to store the input value of the review field.
 
@@ -1139,7 +1201,7 @@ const [review, setReview] = useState('');
 
 ```
 
-**Render Car Cards**
+**Render Car Cards:**
 
 The `Cars` component maps over the `props.Cars` array, which contains the car data passed from the parent component. For each car, it renders a card element with the car's details.
 
@@ -1161,9 +1223,9 @@ The `Cars` component maps over the `props.Cars` array, which contains the car da
 
 ```
 
-**Display Car Information**
+**Display Car Information:**
 
-Inside each card, we display the car's brand, model, availability, and price.
+Inside each card, we display the car's brand, model, availability and price.
 
 ```Solidity
 <h5 className="card-title">Brand: {car.brand}</h5>
@@ -1173,7 +1235,7 @@ Inside each card, we display the car's brand, model, availability, and price.
 
 ```
 
-**Like/Dislike Buttons**
+**Like/Dislike Buttons:**
 
 If the user wallet address is not the same as the car's owner, we render the like and dislike buttons. These buttons trigger the `props.likeCar` and `props.dislikeCar` functions when clicked.
 
@@ -1204,7 +1266,7 @@ If the user wallet address is not the same as the car's owner, we display the nu
 
 ```
 
-**Add Review Form**
+**Add Review Form:**
 
 If the user wallet address is not the same as the car's owner, we render the add review form. This form includes an input field to enter the review and a button to submit it. The value of the input field is controlled by the `review` state.
 
@@ -1232,7 +1294,7 @@ If the user wallet address is not the same as the car's owner, we render the add
 
 ```
 
-**Display Car Reviews**
+**Display Car Reviews:**
 
 the `car.reviews` array and display each review as a paragraph element within the card.
 
@@ -1248,7 +1310,7 @@ the `car.reviews` array and display each review as a paragraph element within th
 
 This code snippet maps over the `car.reviews` array and renders a paragraph element for each review. The `c` parameter represents an individual review object, and we extract the `reviewerMessage` property to display the review message.
 
-**Export the Cars Component**
+**Export the Cars Component:**
 
 At the end of the code, the `Cars` component is exported using `export default` so that it can be imported and used in other parts of the application.
 
@@ -1272,7 +1334,7 @@ import { Cars } from './components/Cars';
 
 This imports the `Cars` component from the `./components/Cars` file.
 
-**Add the Cars Component to the Rendered JSX**
+**Add the Cars Component to the Rendered JSX:**
 
 Inside the `return` statement of the `App` component, add the `Cars` component as a child component to render it on the page. Update the JSX code as follows:
 
@@ -1303,7 +1365,7 @@ Here, we pass various props to the `Cars` component:
 -   `likeCar`: The function to like a car.
 -   `dislikeCar`: The function to dislike a car.
 
-**Implement the AddCar Component**
+**Implement the AddCar Component:**
 
 The `AddCar` component is responsible for rendering a form to add a new car to the car marketplace. It includes input fields for the car brand, model, image URL, price, and number of cars available. When the user clicks the "Add Car" button, the `addCar` function is called with the form values.
 
@@ -1384,7 +1446,7 @@ Add Car
 
 In this code, we define multiple state variables using the `useState` hook to manage the input values for brand, model, image, price, and carsAvailable. The `handleAddCar` function is called when the "Add Car" button is clicked. It invokes the `addCar` function from the props and passes the form values as arguments. After adding the car, the input fields are reset to their initial values using the `setBrand`, `setModel`, `setImage`, `setPrice`, and `setCarsAvailable` functions.
 
-**Implement the Cars Component**
+**Implement the Cars Component:**
 
 The `Cars` component is responsible for rendering the list of cars on the marketplace. It receives the car data as props and renders each car as a card. Users can interact with the cars by liking, disliking, adding reviews, and buying them.
 
@@ -1498,7 +1560,7 @@ The `handleLikeCar`, `handleDislikeCar`, `handleAddReview`, and `handleBuyCar` f
 
 Finally, the car's reviews are displayed by iterating over the reviews array and rendering each review message as a paragraph.
 
-**Update App.js to Use the Cars Component**
+**Update App.js to Use the Cars Component:**
 
 In the `App` component, remove the existing code for rendering the cars and replace it with the `Cars` component. Pass the required props as shown below:
 
@@ -1514,13 +1576,13 @@ In the `App` component, remove the existing code for rendering the cars and repl
 
 ```
 
-Here, we pass the `userWallet` address, the `car` array, and the functions `addReview`, `buyCar`, `likeCar`, and `dislikeCar` to the `Cars` component.
+Here, we pass the `userWallet` address, the `car` array, and the functions `addReview`, `buyCar`, `likeCar` and `dislikeCar` to the `Cars` component.
 
-That's it! You have now implemented the `AddCar` and `Cars` components in your React application. The AddCar component allows users to add cars to the marketplace, and the `Cars` component displays the list of cars with various interactive features.
+That's it! You have now implemented the `AddCar` and `Cars` components in your React application. The AddCar component allows users to add cars to the marketplace and the `Cars` component displays the list of cars with various interactive features.
 
 Feel free to customize the styling and add additional functionality to enhance the user experience.
 
-**Add Styling to the Components**
+**Add Styling to the Components:**
 
 To enhance the visual appeal of the `AddCar` and `Cars` components, we can add some CSS styles. Create a new CSS file called `styles.css` in the `src` folder and add the following styles:
 
@@ -1624,7 +1686,7 @@ import './styles.css';
 
 Now, the styles defined in the `styles.css` file will be applied to the components.
 
-**Test the Application**
+**Test the Application:**
 
 You can now test the application by running it in the development server. In the terminal, make sure you are in the project's root directory and run the following command:
 
@@ -1637,11 +1699,11 @@ This command starts the development server and opens the application in your def
 
 Interact with the application by adding cars, liking and disliking cars, adding reviews, and buying cars. Verify that the changes are reflected in real-time and that the application functions as expected.
 
-Congratulations! You have successfully implemented a car marketplace application using React and interacted with a smart contract on the Celo blockchain. You've learned how to connect to a Celo wallet, retrieve account balance, add cars, interact with car data, and perform transactions using smart contracts.
+Congratulations! You have successfully implemented a car marketplace application using React and interacted with a Smart Contract on the Celo Blockchain. You've learned how to connect to a Celo wallet, retrieve account balance, add cars, interact with car data and perform transactions using Smart Contracts.
 
-### NavigationBar.js
+### NavigationBar.js:
 
-**React Navigation Bar Component**
+**React Navigation Bar Component:**
 
 In this tutorial, we'll be explaining the code for a React Navigation Bar component. The component is written using React functional components and is responsible for rendering a navigation bar with a brand name and a balance display.
 
@@ -1669,7 +1731,7 @@ export const NavigationBar = (props) => {
 
 Here, we define the `NavigationBar` component as a functional component. It receives `props` as its parameter, which allows us to pass data into the component from its parent component.
 
-**Navigation Bar JSX**
+**Navigation Bar JSX:**
 
 ```Solidity
 <nav className="navbar"> 
@@ -1691,7 +1753,7 @@ Inside the `NavigationBar` component, we have the JSX code that represents the n
 -   `<span>`: This creates a span element to wrap the balance display.
 -   `<li><a className="balance"><span>{props.cUSDBalance}</span>cUSD</a></li>`: This represents a list item (`li`) within the secondary navigation. It contains an anchor (`a`) element with a CSS class name of "balance". The `cUSDBalance` prop value is interpolated inside a span element, which will display the balance. The text "cUSD" represents the currency unit.
 
-**Exporting the NavigationBar Component**
+**Exporting the NavigationBar Component:**
 
 ```Solidity
 export const NavigationBar = (props) => {
@@ -1706,7 +1768,7 @@ That's it! You have successfully explained the given code, which is a React Navi
 
 Remember to import the necessary dependencies and pass the required props to the `NavigationBar` component when using it in your application.
 
-**Invoking the NavigationBar Component**
+**Invoking the NavigationBar Component:**
 
 To use the `NavigationBar` component in your application, you need to import it and invoke it within another component. Here's an example of how you can use it:
 
@@ -1736,9 +1798,9 @@ By doing this, the `cUSDBalance` value is available inside the `NavigationBar` c
 
 Remember to update the import and file paths based on your project's structure.
 
-## Deployment
+## Deployment:
 
-To deploy our smart contract successfully, we need the celo extention wallet which can be downloaded from [here](https://chrome.google.com/webstore/detail/celoextensionwallet/kkilomkmpmkbdnfelcpgckmpcaemjcdh?hl=en)
+To deploy our Smart Contract successfully, we need the celo extention wallet which can be downloaded from [here](https://chrome.google.com/webstore/detail/celoextensionwallet/kkilomkmpmkbdnfelcpgckmpcaemjcdh?hl=en)
 
 Next, we need to fund our newly created wallet which can done using the celo alfojares faucet [Here](https://celo.org/developers/faucet)
 
@@ -1748,20 +1810,21 @@ Install the plugin and click on the celo logo which will show in the side tab af
 
 Next connect your celo wallet, select the contract you want to deploy and finally click on deploy to deploy your contract.
 
-## Conclusion
+## Conclusion:
 
 Let's summarize what we learned from this tutorial:
 
- - Solidity is a programming language used for writing smart contracts on the Ethereum blockchain.
+- Solidity is a programming language used for writing smart contracts on the Ethereum blockchain.
 - Solidity uses a similar syntax to JavaScript and C++, but has specific features such as the `contract` keyword and `msg.sender` that are unique to blockchain programming.
-- We can use the `mapping` data structure in Solidity to create key-value pairs, which can be used to store and retrieve data.
-- Solidity also allows us to define custom data types using the `struct` keyword, which allows us to create more complex data structures.
+- We can use the `mapping` data structure in Solidity to create key-value pairs which can be used to store and retrieve data.
+- Solidity also allows us to define custom data types using the `struct` keyword which allows us to create more complex data structures.
 
-We hope this tutorial has provided a helpful introduction to Solidity and smart contract development. There is still much to learn and explore in this exciting field, but this is a solid foundation to build upon.
+We hope this tutorial has provided a helpful introduction to Solidity and Smart Contract development. There is still much to learn and explore in this exciting field, but this is a solid foundation to build upon.
 
-## Next Steps
+## Next Steps:
 
 With us coming to the end of this tutorial, I hope you've learned on how to build a Car Companies Smart Contract on the Celo Blockchain. Here are some relevant links that would aid your learning further.
 
 - [Official Celo Docs](https://docs.celo.org/)
 - [Official Solidity Docs](https://docs.soliditylang.org/en/v0.8.17/)
+  
